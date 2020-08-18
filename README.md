@@ -1,45 +1,28 @@
-# lambda.sync-estate-api
+# lambda.billing-api
 
-This lambda fetches estates from Immobilienscout24 or FlowFact and synchronises with Contentful.
+This lambda fetches tasks in the `Done` column of a [Kanbanflow](https://kanbanflow.com/) board, aggregates the data and creates a billing task.
 
-> As the runtime is most of the time more than 30 seconds, the invocation of the Lambda is asynchronous and the request returns immediately while letting the Lambda run the tasks.
-
-## Tasks
-
-1. Receive payload
+## Payload
 
       ```json
       {
-         "updates": {
-            "created": ["5"],
-            "deleted": ["1"],
-            "updated": ["2", "4"]
-         },
-         "config": {
-            "domain": "hinterland.software",
-            "portal": {
-               "type": "immobilienscout24",
-               "version": "v1"
-            },
-            "contentful": {
-               "estateContentTypeId": "estate",
-               "environmentId": "master",
-               "spaceId": "spaceId",
-            }
-         }
+        "newTask": {
+          "columnId": "<column_id>",
+          "swimlaneId": "<swimlane_id>",
+          "targetColumnId": "1UYVwzWstjha"
+        },
+        "dryRun": true,
+        "range": {
+          "month": 8,
+          "year": 2020
+        }
       }
       ```
-
-2. Fetch `created` & `updated` (detailed) estates from portal
-
-3. Parse portal estates to Contentful estate
-
-4. Import parsed estates to Contentful
 
 ## TODO
 
 - [x] CiCd
-- [x] Tests
+- [ ] Tests
 - [ ] E2E Tests
-- [x] development d
+- [x] development deploy
 - [x] production deploy
