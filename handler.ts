@@ -14,17 +14,19 @@ import {
   generateBillingTemplate,
   addBillingTask,
 } from './lib/kanbanflow';
-import { LABEL_BILLABLE, LABEL_BILLED, LABEL_PREFIX } from './constants';
+import { LABEL_BILLABLE, LABEL_BILLED, LABEL_CX_PREFIX } from './constants';
+import {
+  clearCache,
+  fetchCustomerData,
+  generateInvoiceTemplate,
+  createDraftInvoice,
+} from './lib/debitoor';
 
 export const billingData: APIGatewayProxyHandler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
   try {
-    const {
-      newTask,
-      range = {},
-      dryRun = getEnvironment() !== 'production',
-    }: Payload =
+    const { range = {}, dryRun = getEnvironment() !== 'production' }: Payload =
       typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
 
     const time = new Time(range.month, range.year);
@@ -33,21 +35,46 @@ export const billingData: APIGatewayProxyHandler = async (
 
     const grouped = Object.entries(groupedByCustomers);
 
+    let createdDraftInvoices = null;
+    let createdBillingTask = null;
     if (!dryRun) {
-      await Promise.all(
-        grouped.map(async ([_, { tasks = [] }]) =>
-          Promise.all(tasks.map(async ({ _id }) => addBilledLabel(_id)))
-        )
+      createdDraftInvoices = await Promise.all(
+        grouped.map(async ([cx, { tasks = [] }]) => {
+          try {
+            const data = await fetchCustomerData(cx);
+            const request = generateInvoiceTemplate(data, time, tasks);
+            const response = await createDraftInvoice(request);
+            await Promise.all(
+              tasks.map(async ({ _id }) => addBilledLabel(_id))
+            );
+            return {
+              customer: cx,
+              id: response.id,
+              number: response.number,
+              date: response.date,
+              dueDate: response.dueDate,
+              totalNetAmount: response.totalNetAmount,
+              totalTaxAmount: response.totalTaxAmount,
+              totalGrossAmount: response.totalGrossAmount,
+            };
+          } catch (error) {
+            return {
+              customer: cx,
+              ...error,
+            };
+          }
+        })
       );
 
       const template = generateBillingTemplate(grouped, time);
-      await addBillingTask({
+      const { taskId } = await addBillingTask({
         ...template,
-        ...newTask,
         dueTimestamp: time.dueTimestamp,
       });
+      createdBillingTask = `https://kanbanflow.com/t/${taskId}`;
     }
 
+    clearCache();
     return httpResponse(
       200,
       `Created billing task with ${grouped.length} subtask${
@@ -55,16 +82,19 @@ export const billingData: APIGatewayProxyHandler = async (
       }`,
       {
         config: {
+          dryRun,
           range: {
             from: time.startOfMonthFormatted,
             to: time.endOfMonthFormatted,
           },
-          dryRun,
         },
         customers: groupedByCustomers,
+        createdBillingTask,
+        createdDraftInvoices,
       }
     );
   } catch (error) {
+    clearCache();
     Logger.error(error);
     return httpResponse(error.statusCode, error.message, error);
   }
@@ -86,7 +116,9 @@ async function aggregateTasks(time: Time): Promise<Grouped> {
 
   const billableTasks = tasks.filter(({ labels = [], groupingDate }) => {
     const notBilled = !labels.some(({ name }) => name === LABEL_BILLED);
+    if (!notBilled) return false;
     const billable = labels.some(({ name }) => name === LABEL_BILLABLE);
+    if (!billable) return false;
     const inRange = time.isBetweenStartAndEndOfMonth(groupingDate);
     return notBilled && billable && inRange;
   });
@@ -94,8 +126,9 @@ async function aggregateTasks(time: Time): Promise<Grouped> {
   return billableTasks.reduce(
     async (acc, { totalSecondsSpent, _id, labels, ...rest }) => {
       const customerName = (
-        labels.find(({ name }) => name.startsWith(LABEL_PREFIX))?.name || 'N/A'
-      ).replace(LABEL_PREFIX, '');
+        labels.find(({ name }) => name.startsWith(LABEL_CX_PREFIX))?.name ||
+        'N/A'
+      ).replace(LABEL_CX_PREFIX, '');
 
       const previous = (await acc)[customerName];
       return {

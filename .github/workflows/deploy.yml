@@ -47,7 +47,8 @@ jobs:
           echo "::set-env name=COLUMN_ID::${{ secrets.COLUMN_ID }}"
           echo "::set-env name=SWIMLANE_ID::${{ secrets.SWIMLANE_ID }}"
           echo "::set-env name=TARGET_COLUMN_ID::${{ secrets.TARGET_COLUMN_ID }}"
-          echo "::set-env name=API_TOKEN::${{ secrets.API_TOKEN }}"
+          echo "::set-env name=KANBANFLOW_API_TOKEN::${{ secrets.KANBANFLOW_API_TOKEN }}"
+          echo "::set-env name=DEBITOOR_API_TOKEN::${{ secrets.DEBITOOR_API_TOKEN }}"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1

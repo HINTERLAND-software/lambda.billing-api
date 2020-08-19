@@ -1,12 +1,21 @@
-import { fetch } from './utils';
+import { initFetch } from './utils';
 import qs from 'querystring';
-import { BOARD_PATH, BASE_URL, TASK_PATH, LABEL_BILLABLE } from '../constants';
+import { LABEL_BILLABLE } from '../constants';
 import { Board, Swimlane, SubTask, GroupedTask, Label } from '../types';
 import { Time, getTimeSpent } from './time';
 
+const BASE_URL = 'https://kanbanflow.com/api/v1';
+const TASK_PATH = 'tasks';
+const BOARD_PATH = 'board';
+
+const fetch = initFetch(
+  `Basic ${Buffer.from(`apiToken:${process.env.KANBANFLOW_API_TOKEN}`).toString(
+    'base64'
+  )}`
+);
+
 export const fetchBoard = async (): Promise<Board> => {
-  const result = await fetch(`${BASE_URL}/${BOARD_PATH}`);
-  return result.json();
+  return fetch(`${BASE_URL}/${BOARD_PATH}`);
 };
 
 export const fetchTasksUntil = async (
@@ -20,44 +29,39 @@ export const fetchTasksUntil = async (
     startGroupingDate: until,
   });
   const result = await fetch(`${BASE_URL}/${TASK_PATH}?${querystring}`);
-  return result.json();
+  return result;
 };
 
 export const addTask = async (body: object): Promise<{ taskId: string }> => {
-  const result = await fetch(`${BASE_URL}/${TASK_PATH}`, {
+  return fetch(`${BASE_URL}/${TASK_PATH}`, {
     method: 'POST',
     body: JSON.stringify(body),
   });
-  return result.json();
 };
 
 export const addBilledLabel = async (
   taskId: string
 ): Promise<{ insertIndex: number }> => {
-  const result = await fetch(`${BASE_URL}/${TASK_PATH}/${taskId}/labels`, {
+  return fetch(`${BASE_URL}/${TASK_PATH}/${taskId}/labels`, {
     method: 'POST',
     body: JSON.stringify({ name: 'billed' }),
   });
-  return result.json();
 };
 
 export const addBillingTask = async ({
   name,
   description,
   subTasks,
-  columnId,
-  swimlaneId,
-  targetColumnId,
   dueTimestamp,
 }: {
   name: string;
   description: string;
-  columnId: string;
-  swimlaneId: string;
-  targetColumnId: string;
   dueTimestamp: string;
   subTasks: SubTask[];
 }) => {
+  const columnId = process.env.COLUMN_ID;
+  const swimlaneId = process.env.SWIMLANE_ID;
+  const targetColumnId = process.env.TARGET_COLUMN_ID;
   return addTask({
     name,
     description,
@@ -137,7 +141,7 @@ export const generateBillingTemplate = (
     },
     {
       name: `Billing from ${time.startOfMonthFormatted} to ${time.endOfMonthFormatted}`,
-      description: '*Billing entries*',
+      description: '[Debitoor invoices](https://app.debitoor.com/invoices)',
       subTasks: [],
     }
   );

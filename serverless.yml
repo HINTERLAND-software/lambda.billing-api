@@ -27,7 +27,11 @@ provider:
   environment: # Service wide environment variables
     STAGE: ${self:provider.stage}
     AWS_NODEJS_CONNECTION_REUSE_ENABLED: 1
-    API_TOKEN: ${env:API_TOKEN}
+    KANBANFLOW_API_TOKEN: ${env:KANBANFLOW_API_TOKEN}
+    DEBITOOR_API_TOKEN: ${env:DEBITOOR_API_TOKEN}
+    COLUMN_ID: ${env:COLUMN_ID}
+    SWIMLANE_ID: ${env:SWIMLANE_ID}
+    TARGET_COLUMN_ID: ${env:TARGET_COLUMN_ID}
 
 custom:
   enabled:

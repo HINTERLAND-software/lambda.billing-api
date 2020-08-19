@@ -3,36 +3,53 @@ import moment from 'moment';
 export const getTimeSpent = (seconds: number): string =>
   moment('2015-01-01').startOf('day').seconds(seconds).format('H:mm:ss');
 
+export const getHours = (seconds: number): number => seconds / 3600;
+
+export const round = (
+  number: number,
+  increment: number,
+  offset: number = 0
+): number => {
+  return Math.ceil((number - offset) / increment) * increment + offset;
+};
+
+export const getRoundedHours = (seconds: number = 0) => {
+  return round(getHours(seconds), 0.25);
+};
+
+export const formatDateForInvoice = (date: string) =>
+  moment(date).format('DD.MM.YYYY');
+
 export class Time {
-  private _moment: moment.Moment = moment().utc();
+  private _moment: moment.Moment = moment();
   private _format: string = 'YYYY-MM-DD';
   constructor(month?: number, year?: number) {
-    this.month = month ? month - 1 : this._moment.month();
-    this.year = year || this._moment.year();
+    this.month = month ? month - 1 : undefined;
+    this.year = year;
   }
 
   public isBetweenStartAndEndOfMonth(date: string): boolean {
-    const momentDate = moment(date);
+    const groupingDate = moment(date).valueOf();
     return (
-      this.startOfMonth.isBefore(momentDate) &&
-      this.endOfMonth.isAfter(momentDate)
+      this.startOfMonthEpoch <= groupingDate &&
+      this.endOfMonthEpoch >= groupingDate
     );
   }
 
   set month(month: number) {
-    this._moment.month(month);
+    month && this._moment.month(month);
   }
 
   set year(year: number) {
-    this._moment.year(year);
+    year && this._moment.year(year);
   }
 
   get startOfMonth(): moment.Moment {
-    return this._moment.startOf('month');
+    return this._moment.clone().startOf('month');
   }
 
   get endOfMonth(): moment.Moment {
-    return this._moment.endOf('month');
+    return this._moment.clone().endOf('month');
   }
 
   get startOfMonthFormatted(): string {
@@ -52,6 +69,6 @@ export class Time {
   }
 
   get dueTimestamp(): string {
-    return this.endOfMonth.add(1, 'day').format();
+    return this.endOfMonth.utc().add(1, 'day').format();
   }
 }

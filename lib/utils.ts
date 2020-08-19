@@ -1,6 +1,5 @@
 import { APIGatewayProxyResult } from 'aws-lambda';
-import nodeFetch, { Response, RequestInit } from 'node-fetch';
-import { AUTH } from '../constants';
+import nodeFetch, { RequestInit } from 'node-fetch';
 
 export const httpResponse = (
   statusCode: number = 400,
@@ -43,18 +42,23 @@ export class Logger {
   }
 }
 
-export const fetch = async (
+export const initFetch = (authorization) => async (
   url: string,
   options: RequestInit = {}
-): Promise<Response> => {
+): Promise<any> => {
   options.method = options.method || 'GET';
 
-  options.headers = { Authorization: AUTH, ...(options.headers || {}) };
+  options.headers = {
+    Authorization: authorization,
+    ...(options.headers || {}),
+  };
   if (options.method === 'POST') {
     options.headers['Content-type'] = 'application/json';
   }
 
-  const result = await nodeFetch(url, options);
-  if (result['errors']) throw new Error(result['errors']);
-  return result;
+  const response = await nodeFetch(url, options);
+  const json = await response.json();
+  if (json['errors'] || (json['message'] && json['code']))
+    return Promise.reject(json);
+  return json;
 };
