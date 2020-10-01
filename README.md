@@ -16,7 +16,7 @@ export DEBITOOR_API_TOKEN="<debitoor_api_token>"
 
 ## Payload
 
-```json
+```jsonc
 {
   // Should the kanbanflow tasks be updated, a billing task and invoices be created
   "dryRun": true,

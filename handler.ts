@@ -27,7 +27,7 @@ export const billingData: APIGatewayProxyHandler = async (
 ): Promise<APIGatewayProxyResult> => {
   try {
     const { range = {}, dryRun = getEnvironment() !== 'production' }: Payload =
-      typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
+      typeof event.body === 'string' ? JSON.parse(event.body) : event.body || {};
 
     const time = new Time(range.month, range.year);
 
