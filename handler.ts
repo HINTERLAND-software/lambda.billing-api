@@ -4,19 +4,18 @@ import {
   APIGatewayProxyResult,
 } from 'aws-lambda';
 import 'source-map-support/register';
-import { httpResponse, Logger, getEnvironment } from './lib/utils';
-import { Payload, Task, Grouped } from './types';
+import { httpResponse, Logger, getEnvironment, clearCaches } from './lib/utils';
+import { Payload } from './types';
+import { Grouped, TimeEntry } from './types-toggl';
 import { Time } from './lib/time';
 import {
-  fetchBoard,
-  fetchTasksUntil,
-  addBilledLabel,
-  generateBillingTemplate,
-  addBillingTask,
-} from './lib/kanbanflow';
-import { LABEL_BILLABLE, LABEL_BILLED, LABEL_CX_PREFIX } from './constants';
+  bulkAddBilledTag,
+  fetchClient,
+  fetchProject,
+  fetchTimeEntriesBetween,
+} from './lib/toggl';
+import { LABEL_BILLABLE, LABEL_BILLED } from './constants';
 import {
-  clearCache,
   fetchCustomerData,
   generateInvoiceTemplate,
   createDraftInvoice,
@@ -27,28 +26,71 @@ export const billingData: APIGatewayProxyHandler = async (
 ): Promise<APIGatewayProxyResult> => {
   try {
     const { range = {}, dryRun = getEnvironment() !== 'production' }: Payload =
-      typeof event.body === 'string' ? JSON.parse(event.body) : event.body || {};
+      typeof event.body === 'string'
+        ? JSON.parse(event.body)
+        : event.body || {};
 
     const time = new Time(range.month, range.year);
 
-    const groupedByCustomers: Grouped = await aggregateTasks(time);
+    const timeEntries = await fetchTimeEntriesBetween(
+      time.startOfMonthISO,
+      time.endOfMonthISO
+    );
 
-    const grouped = Object.entries(groupedByCustomers);
+    const billableTimeEntries = timeEntries.filter(
+      ({ tags }) =>
+        tags.includes(LABEL_BILLABLE) && !tags.includes(LABEL_BILLED)
+    );
+
+    const groupedByClients: Grouped = await billableTimeEntries.reduce(
+      async (acc, { duration, id, pid, ...rest }) => {
+        const project = await fetchProject(pid);
+        const client = await fetchClient(project.cid);
+
+        const previous = (await acc)[client.id];
+        return {
+          ...(await acc),
+          [client.id]: {
+            ...(previous || {}),
+            client,
+            timeEntriesGroupedByProject: {
+              [pid]: {
+                project,
+                totalSecondsSpent:
+                  (previous?.timeEntriesGroupedByProject?.[pid]
+                    ?.totalSecondsSpent || 0) + duration,
+                timeEntries: [
+                  ...(previous?.timeEntriesGroupedByProject?.[pid]
+                    ?.timeEntries || []),
+                  { duration, id, ...rest } as TimeEntry,
+                ],
+              },
+            },
+          },
+        };
+      },
+      {} as Promise<Grouped>
+    );
+
+    const grouped = Object.values(groupedByClients);
 
     let createdDraftInvoices = null;
-    let createdBillingTask = null;
     if (!dryRun) {
       createdDraftInvoices = await Promise.all(
-        grouped.map(async ([cx, { tasks = [] }]) => {
+        grouped.map(async (groupedTimeEntries) => {
           try {
-            const data = await fetchCustomerData(cx);
-            const request = generateInvoiceTemplate(data, time, tasks);
-            const response = await createDraftInvoice(request);
-            await Promise.all(
-              tasks.map(async ({ _id }) => addBilledLabel(_id))
+            const data = await fetchCustomerData(
+              groupedTimeEntries.client.name
             );
+            const request = generateInvoiceTemplate(
+              data,
+              time,
+              groupedTimeEntries.timeEntriesGroupedByProject
+            );
+            const response = await createDraftInvoice(request);
             return {
-              customer: cx,
+              groupedTimeEntries,
+              data,
               id: response.id,
               number: response.number,
               date: response.date,
@@ -59,26 +101,22 @@ export const billingData: APIGatewayProxyHandler = async (
             };
           } catch (error) {
             return {
-              customer: cx,
+              groupedTimeEntries,
               ...error,
             };
           }
         })
       );
 
-      const template = generateBillingTemplate(grouped, time);
-      const { taskId } = await addBillingTask({
-        ...template,
-        dueTimestamp: time.dueTimestamp,
-      });
-      createdBillingTask = `https://kanbanflow.com/t/${taskId}`;
+      if (billableTimeEntries.length) {
+        await bulkAddBilledTag(billableTimeEntries);
+      }
     }
 
-    clearCache();
     return httpResponse(
       200,
       `Created billing task with ${grouped.length} subtask${
-        grouped.length === 1 ? 's' : ''
+        grouped.length === 0 ? 's' : ''
       }`,
       {
         config: {
@@ -88,68 +126,14 @@ export const billingData: APIGatewayProxyHandler = async (
             to: time.endOfMonthFormatted,
           },
         },
-        customers: groupedByCustomers,
-        createdBillingTask,
+        clients: groupedByClients,
         createdDraftInvoices,
       }
     );
   } catch (error) {
-    clearCache();
     Logger.error(error);
     return httpResponse(error.statusCode, error.message, error);
+  } finally {
+    clearCaches();
   }
 };
-
-async function aggregateTasks(time: Time): Promise<Grouped> {
-  const { swimlanes } = await fetchBoard();
-
-  const results = await Promise.all(
-    swimlanes.map(({ uniqueId }) =>
-      fetchTasksUntil(uniqueId, time.endOfMonthFormatted)
-    )
-  );
-
-  const tasks = results.reduce(
-    (acc, [{ tasks }]) => [...acc, ...tasks],
-    [] as Task[]
-  );
-
-  const billableTasks = tasks.filter(({ labels = [], groupingDate }) => {
-    const notBilled = !labels.some(({ name }) => name === LABEL_BILLED);
-    if (!notBilled) return false;
-    const billable = labels.some(({ name }) => name === LABEL_BILLABLE);
-    if (!billable) return false;
-    const inRange = time.isBetweenStartAndEndOfMonth(groupingDate);
-    return notBilled && billable && inRange;
-  });
-
-  return billableTasks.reduce(
-    async (acc, { totalSecondsSpent, _id, labels, ...rest }) => {
-      const customerName = (
-        labels.find(({ name }) => name.startsWith(LABEL_CX_PREFIX))?.name ||
-        'N/A'
-      ).replace(LABEL_CX_PREFIX, '');
-
-      const previous = (await acc)[customerName];
-      return {
-        ...(await acc),
-        [customerName]: {
-          ...(previous || {}),
-          customerName,
-          totalSecondsSpent:
-            (previous?.totalSecondsSpent || 0) + totalSecondsSpent,
-          tasks: [
-            ...(previous?.tasks || []),
-            {
-              totalSecondsSpent,
-              _id,
-              labels,
-              ...rest,
-            },
-          ],
-        },
-      };
-    },
-    {} as Promise<Grouped>
-  );
-}
