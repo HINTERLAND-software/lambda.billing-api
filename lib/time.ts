@@ -60,6 +60,14 @@ export class Time {
     return this.endOfMonth.format(this._format);
   }
 
+  get startOfMonthISO(): string {
+    return this.startOfMonth.format();
+  }
+
+  get endOfMonthISO(): string {
+    return this.endOfMonth.format();
+  }
+
   get startOfMonthEpoch(): number {
     return this.startOfMonth.valueOf();
   }
