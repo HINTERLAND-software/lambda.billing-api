@@ -62,3 +62,23 @@ export const initFetch = (authorization) => async (
     return Promise.reject(json);
   return json;
 };
+
+let caches = {};
+export const clearCaches = () => (caches = {});
+export class Cache<T> {
+  constructor(private id: string, private defaultValues: T = null) {
+    caches[this.id] = this.defaultValues;
+  }
+  clear(): void {
+    caches[this.id] = this.defaultValues;
+  }
+  get(): T {
+    return caches[this.id];
+  }
+  set(value: T): void {
+    caches[this.id] = value;
+  }
+  assign(value: T): void {
+    caches[this.id] = { ...caches[this.id], ...value };
+  }
+}

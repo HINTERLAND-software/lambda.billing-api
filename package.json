@@ -1,7 +1,7 @@
 {
   "name": "lambda-billing-api",
-  "version": "1.0.0",
-  "description": "Poll tasks in kanbanflow by tag and aggregate billed hours",
+  "version": "2.0.0",
+  "description": "Poll tasks in toggl by tag and aggregate billed hours",
   "private": false,
   "main": "handler.js",
   "scripts": {

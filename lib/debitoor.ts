@@ -1,15 +1,14 @@
-import { initFetch } from './utils';
+import { Cache, initFetch } from './utils';
 import qs from 'querystring';
+import { CustomerMeta } from '../types';
 import {
   Line,
   Customer,
   Product,
-  CustomerMeta,
   DraftInvoiceRequest,
-  Task,
-  SubTask,
   DraftInvoiceResponse,
-} from '../types';
+} from '../types-debitoor';
+import { GroupedTimeEntries, TimeEntry } from '../types-toggl';
 import { Time, getRoundedHours, formatDateForInvoice } from './time';
 import { CX, SKU, LABEL_CX_PREFIX } from '../constants';
 
@@ -20,26 +19,27 @@ const DRAFT_INVOICES_PATH = 'sales/draftinvoices/v7';
 
 const fetch = initFetch(`Bearer ${process.env.DEBITOOR_API_TOKEN}`);
 
-let cache: { customers?: Customer[]; products: { [key: string]: Product } };
-export const clearCache = (): void => {
-  cache = {
-    customers: null,
-    products: {},
-  };
-};
-clearCache();
+const customerCache = new Cache<Customer[]>('debitoor.customers', null);
+const productCache = new Cache<{ [key: string]: Product }>(
+  'debitoor.products',
+  {}
+);
 
 export const fetchCustomers = async (): Promise<Customer[]> => {
-  const customers = await fetch(`${BASE_URL}/${CUSTOMERS_PATH}`);
-  cache.customers = customers;
+  const customers =
+    customerCache.get() || (await fetch(`${BASE_URL}/${CUSTOMERS_PATH}`));
+  customerCache.set(customers);
   return customers;
 };
 
 export const fetchProductBySku = async (sku: string): Promise<Product> => {
+  const cachedProduct = productCache.get()?.[sku];
+  if (cachedProduct) return cachedProduct;
+
   const querystring = qs.stringify({ sku });
   const result = await fetch(`${BASE_URL}/${PRODUCTS_PATH}?${querystring}`);
   const product = result?.[0];
-  cache.products[sku] = product;
+  productCache.assign({ [sku]: product });
   return product;
 };
 
@@ -64,7 +64,7 @@ const getCustomerMeta = (notes: string = ''): CustomerMeta => {
 
 export const getCustomer = (
   customers: Customer[],
-  cx: string
+  customerName: string
 ): { customer: Customer; meta: CustomerMeta } => {
   return customers.reduce(
     (acc, customer) => {
@@ -72,7 +72,7 @@ export const getCustomer = (
       if (
         !acc.customer &&
         !acc.meta &&
-        cx.replace(LABEL_CX_PREFIX, '') === meta.cx
+        customerName.replace(LABEL_CX_PREFIX, '') === meta.cx
       ) {
         return { customer, meta };
       }
@@ -83,25 +83,27 @@ export const getCustomer = (
 };
 
 export const fetchCustomerData = async (
-  cx: string
+  customerName: string
 ): Promise<{
   product: Product;
   customer: Customer;
   meta: CustomerMeta;
 }> => {
   const customers = await fetchCustomers();
-  const { customer, meta } = getCustomer(customers, cx);
+  const { customer, meta } = getCustomer(customers, customerName);
   if (!customer || !meta) {
-    throw new Error(`Customer "${cx}" not found`);
+    throw new Error(`Customer "${customerName}" not found`);
   }
   const product = await fetchProductBySku(meta.sku);
   return { product, customer, meta };
 };
 
-const sanitizeSubTasks = (subTasks: SubTask[] = []) => {
-  const filteredAndMapped = subTasks.map(({ name }) => name);
-  if (filteredAndMapped.length <= 0) return '';
-  return `  - ${filteredAndMapped.join('\n  - ')}`;
+const sanitizeTimeEntries = (timeEntries: TimeEntry[] = []) => {
+  const filteredAndMapped = timeEntries.map(
+    ({ description, stop }) =>
+      `  - ${description} (${formatDateForInvoice(stop)})`
+  );
+  return filteredAndMapped.join('\n');
 };
 
 export const generateInvoiceTemplate = (
@@ -114,24 +116,22 @@ export const generateInvoiceTemplate = (
     meta: CustomerMeta;
   },
   time: Time,
-  tasks: Task[] = []
+  timeEntriesGroupedByProject: GroupedTimeEntries['timeEntriesGroupedByProject']
 ): DraftInvoiceRequest => {
-  const lines: Line[] = tasks.map(
-    ({ name, subTasks, totalSecondsSpent, groupingDate }) => {
-      const description = `Leistungserbringung ${formatDateForInvoice(
-        groupingDate
-      )}\n${sanitizeSubTasks(subTasks)}`;
+  const lines: Line[] = Object.values(timeEntriesGroupedByProject).map(
+    ({ project, totalSecondsSpent, timeEntries }) => {
       return {
         productId: product.id,
         taxEnabled: product.taxEnabled,
         taxRate: product.rate,
         unitNetPrice: product.netUnitSalesPrice,
-        productName: name,
+        productName: project.name,
         quantity: getRoundedHours(totalSecondsSpent) || 0,
-        description,
+        description: sanitizeTimeEntries(timeEntries),
       };
     }
   );
+
   const notes = `Leistungszeitraum ${formatDateForInvoice(
     time.startOfMonthFormatted
   )} - ${formatDateForInvoice(time.endOfMonthFormatted)}`;
