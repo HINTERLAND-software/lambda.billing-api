@@ -57,10 +57,16 @@ export const initFetch = (authorization) => async (
   }
 
   const response = await nodeFetch(url, options);
-  const json = await response.json();
-  if (json['errors'] || (json['message'] && json['code']))
-    return Promise.reject(json);
-  return json;
+  try {
+    const json = await response.json();
+    if (json['errors'] || (json['message'] && json['code']))
+      return Promise.reject(json);
+    return json;
+  } catch (error) {
+    return Promise.reject(
+      `[${response.status}] - ${response.statusText} (${response.url})`
+    );
+  }
 };
 
 let caches = {};
@@ -82,3 +88,6 @@ export class Cache<T> {
     caches[this.id] = { ...caches[this.id], ...value };
   }
 }
+
+export const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));

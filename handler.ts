@@ -21,6 +21,38 @@ import {
   createDraftInvoice,
 } from './lib/debitoor';
 
+const getGroupedByClients = async (
+  billableTimeEntries: TimeEntry[]
+): Promise<Grouped> => {
+  const grouped: Grouped = {};
+  for (let i = 0; i < billableTimeEntries.length; i++) {
+    const { duration, id, pid, ...rest } = billableTimeEntries[i];
+    const project = await fetchProject(pid);
+    const client = await fetchClient(project.cid);
+
+    const previous = grouped[client.id];
+
+    grouped[client.id] = {
+      ...(previous || {}),
+      client,
+      timeEntriesGroupedByProject: {
+        [pid]: {
+          project,
+          totalSecondsSpent:
+            (previous?.timeEntriesGroupedByProject?.[pid]?.totalSecondsSpent ||
+              0) + duration,
+          timeEntries: [
+            ...(previous?.timeEntriesGroupedByProject?.[pid]?.timeEntries ||
+              []),
+            { duration, id, ...rest } as TimeEntry,
+          ],
+        },
+      },
+    };
+  }
+  return grouped;
+};
+
 export const billingData: APIGatewayProxyHandler = async (
   event: APIGatewayProxyEvent
 ): Promise<APIGatewayProxyResult> => {
@@ -42,34 +74,8 @@ export const billingData: APIGatewayProxyHandler = async (
         tags.includes(LABEL_BILLABLE) && !tags.includes(LABEL_BILLED)
     );
 
-    const groupedByClients: Grouped = await billableTimeEntries.reduce(
-      async (acc, { duration, id, pid, ...rest }) => {
-        const project = await fetchProject(pid);
-        const client = await fetchClient(project.cid);
-
-        const previous = (await acc)[client.id];
-        return {
-          ...(await acc),
-          [client.id]: {
-            ...(previous || {}),
-            client,
-            timeEntriesGroupedByProject: {
-              [pid]: {
-                project,
-                totalSecondsSpent:
-                  (previous?.timeEntriesGroupedByProject?.[pid]
-                    ?.totalSecondsSpent || 0) + duration,
-                timeEntries: [
-                  ...(previous?.timeEntriesGroupedByProject?.[pid]
-                    ?.timeEntries || []),
-                  { duration, id, ...rest } as TimeEntry,
-                ],
-              },
-            },
-          },
-        };
-      },
-      {} as Promise<Grouped>
+    const groupedByClients: Grouped = await getGroupedByClients(
+      billableTimeEntries
     );
 
     const grouped = Object.values(groupedByClients);
