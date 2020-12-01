@@ -70,8 +70,8 @@ export const billingData: APIGatewayProxyHandler = async (
     );
 
     const billableTimeEntries = timeEntries.filter(
-      ({ tags }) =>
-        tags.includes(LABEL_BILLABLE) && !tags.includes(LABEL_BILLED)
+      ({ tags = '' }) =>
+        tags?.includes(LABEL_BILLABLE) && !tags?.includes(LABEL_BILLED)
     );
 
     const groupedByClients: Grouped = await getGroupedByClients(
