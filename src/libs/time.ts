@@ -1,4 +1,4 @@
-import moment from 'moment';
+import * as moment from 'moment';
 
 export const getTimeSpent = (seconds: number): string =>
   moment('2015-01-01').startOf('day').seconds(seconds).format('H:mm:ss');
