@@ -19,6 +19,10 @@ module.exports = {
     path: path.join(__dirname, '.webpack'),
     filename: '[name].js',
   },
+  optimization: {
+    // fix node modules not packaged into zip
+    concatenateModules: false
+  },
   target: 'node',
   externals: [nodeExternals()],
   module: {
