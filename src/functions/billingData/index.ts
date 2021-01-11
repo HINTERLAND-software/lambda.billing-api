@@ -1,3 +1,4 @@
+import type { AWS } from '@serverless/typescript';
 import schema from './schema';
 
 export default {
@@ -13,10 +14,12 @@ export default {
           },
         },
       },
+    },
+    {
       schedule: {
         rate: 'cron(0 21 L * ? *)', // last day of the month 9pm
         enabled: '${self:custom.enabled.${self:provider.stage}}',
       },
     },
   ],
-};
+} as AWS['functions'];
