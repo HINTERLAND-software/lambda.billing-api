@@ -18,5 +18,4 @@ export default {
       },
     },
   },
-  required: [],
-} as const;
+};

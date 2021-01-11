@@ -10,8 +10,7 @@
     "start:offline": "DEBUG=true serverless offline --httpPort 6060 start",
     "jest": "jest",
     "jest:watch": "jest --watch",
-    "deploy": "serverless deploy --conceal",
-    "logs": "serverless logs -f sync-estates"
+    "deploy": "serverless deploy --conceal"
   },
   "keywords": [],
   "author": "jroehl <mail@hinterland.software>",
