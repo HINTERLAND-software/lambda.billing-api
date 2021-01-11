@@ -1,3 +1,10 @@
+import { CX, SKU } from './constants';
+
+export interface CustomerMeta {
+  [CX]?: string;
+  [SKU]?: string;
+}
+
 export interface Customer {
   name: string;
   number: number;

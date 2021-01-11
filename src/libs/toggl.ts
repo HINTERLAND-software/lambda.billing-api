@@ -1,7 +1,7 @@
 import { Cache, initFetch } from './utils';
-import qs from 'querystring';
-import { LABEL_BILLED } from '../constants';
-import { TimeEntry, Project, Client } from '../types-toggl';
+import * as qs from 'querystring';
+import { LABEL_BILLED } from './constants';
+import { TimeEntry, Project, Client } from './toggl-types';
 
 const BASE_URL = 'https://api.track.toggl.com/api/v8';
 const TIME_ENTRIES_PATH = 'time_entries';

@@ -1,25 +1,28 @@
-import {
-  APIGatewayProxyEvent,
-  APIGatewayProxyHandler,
-  APIGatewayProxyResult,
-} from 'aws-lambda';
 import 'source-map-support/register';
-import { httpResponse, Logger, getEnvironment, clearCaches } from './lib/utils';
-import { Payload } from './types';
-import { Grouped, TimeEntry } from './types-toggl';
-import { Time } from './lib/time';
+
+import { Logger, getEnvironment, clearCaches } from '@libs/utils';
+import { Grouped, TimeEntry } from '@libs/toggl-types';
+import { Time } from '@libs/time';
 import {
   bulkAddBilledTag,
   fetchClient,
   fetchProject,
   fetchTimeEntriesBetween,
-} from './lib/toggl';
-import { LABEL_BILLABLE, LABEL_BILLED } from './constants';
+} from '@libs/toggl';
+import { LABEL_BILLABLE, LABEL_BILLED } from '@libs/constants';
 import {
   fetchCustomerData,
   generateInvoiceTemplate,
   createDraftInvoice,
-} from './lib/debitoor';
+} from '@libs/debitoor';
+import { middyfy } from '@libs/lambda';
+
+import {
+  httpResponse,
+  ValidatedEventAPIGatewayProxyEvent,
+} from '@libs/apiGateway';
+
+import schema from './schema';
 
 const getGroupedByClients = async (
   billableTimeEntries: TimeEntry[]
@@ -53,14 +56,14 @@ const getGroupedByClients = async (
   return grouped;
 };
 
-export const billingData: APIGatewayProxyHandler = async (
-  event: APIGatewayProxyEvent
-): Promise<APIGatewayProxyResult> => {
+const billingData: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
+  event
+) => {
   try {
-    const { range = {}, dryRun = getEnvironment() !== 'production' }: Payload =
-      typeof event.body === 'string'
-        ? JSON.parse(event.body)
-        : event.body || {};
+    const {
+      range = {},
+      dryRun = getEnvironment() !== 'production',
+    } = event.body;
 
     const time = new Time(range.month, range.year);
 
@@ -143,3 +146,5 @@ export const billingData: APIGatewayProxyHandler = async (
     clearCaches();
   }
 };
+
+export const main = middyfy(billingData);

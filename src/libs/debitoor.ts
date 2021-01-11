@@ -1,16 +1,16 @@
 import { Cache, initFetch } from './utils';
-import qs from 'querystring';
-import { CustomerMeta } from '../types';
+import * as qs from 'querystring';
 import {
+  CustomerMeta,
   Line,
   Customer,
   Product,
   DraftInvoiceRequest,
   DraftInvoiceResponse,
-} from '../types-debitoor';
-import { GroupedTimeEntries, TimeEntry } from '../types-toggl';
+} from './debitoor-types';
+import { GroupedTimeEntries, TimeEntry } from './toggl-types';
 import { Time, getRoundedHours, formatDateForInvoice } from './time';
-import { CX, SKU, LABEL_CX_PREFIX } from '../constants';
+import { CX, SKU, LABEL_CX_PREFIX } from './constants';
 
 const BASE_URL = 'https://api.debitoor.com/api';
 const CUSTOMERS_PATH = 'customers/v2';
