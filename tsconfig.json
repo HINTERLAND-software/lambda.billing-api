@@ -1,14 +1,14 @@
 {
   "extends": "./tsconfig.paths.json",
   "compilerOptions": {
-    "lib": ["ESNext"],
+    "lib": ["es2017"],
     "removeComments": true,
     "moduleResolution": "node",
     "esModuleInterop": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "sourceMap": true,
-    "target": "ESNext",
+    "target": "es2017",
     "outDir": "lib"
   },
   "include": ["src/**/*.ts"],
