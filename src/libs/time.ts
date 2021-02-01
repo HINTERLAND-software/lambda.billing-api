@@ -1,4 +1,4 @@
-import * as moment from 'moment';
+import moment from 'moment';
 
 export const getTimeSpent = (seconds: number): string =>
   moment('2015-01-01').startOf('day').seconds(seconds).format('H:mm:ss');
@@ -24,8 +24,12 @@ export class Time {
   private _moment: moment.Moment = moment();
   private _format: string = 'YYYY-MM-DD';
   constructor(month?: number, year?: number) {
-    this.month = month ? month - 1 : undefined;
-    this.year = year;
+    if (month) {
+      this._moment.set('month', month - 1);
+    }
+    if (year) {
+      this._moment.set('year', year);
+    }
   }
 
   public isBetweenStartAndEndOfMonth(date: string): boolean {
