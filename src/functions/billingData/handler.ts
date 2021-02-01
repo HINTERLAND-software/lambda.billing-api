@@ -60,12 +60,10 @@ const billingData: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
   event
 ) => {
   try {
-    const {
-      range = {},
-      dryRun = getEnvironment() !== 'production',
-    } = event.body;
+    const { range, dryRun = getEnvironment() !== 'production' } =
+      event.body || {};
 
-    const time = new Time(range.month, range.year);
+    const time = new Time(range?.month, range?.year);
 
     const timeEntries = await fetchTimeEntriesBetween(
       time.startOfMonthISO,
