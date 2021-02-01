@@ -63,7 +63,7 @@ const billingData: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
     const {
       range = {},
       dryRun = getEnvironment() !== 'production',
-    } = event.body;
+    } = event.body || {};
 
     const time = new Time(range.month, range.year);
 
