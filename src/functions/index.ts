@@ -1,1 +1,1 @@
-export { default as billingData } from './billingData';
+export { default as billing } from './billing';

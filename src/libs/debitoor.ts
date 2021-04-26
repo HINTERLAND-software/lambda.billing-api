@@ -116,9 +116,9 @@ export const generateInvoiceTemplate = (
     meta: CustomerMeta;
   },
   time: Time,
-  timeEntriesGroupedByProject: GroupedTimeEntries['timeEntriesGroupedByProject']
+  projects: GroupedTimeEntries['projects']
 ): DraftInvoiceRequest => {
-  const lines: Line[] = Object.values(timeEntriesGroupedByProject).map(
+  const lines: Line[] = projects.map(
     ({ project, totalSecondsSpent, timeEntries }) => {
       return {
         productId: product.id,
@@ -148,4 +148,39 @@ export const generateInvoiceTemplate = (
     additionalNotes,
     lines,
   };
+};
+
+export const createDraftInvoices = (
+  grouped: GroupedTimeEntries[],
+  time: Time
+): Promise<Array<DraftInvoiceResponse>> => {
+  return Promise.all(
+    grouped.map(async (groupedTimeEntries) => {
+      try {
+        const data = await fetchCustomerData(groupedTimeEntries.client.name);
+        const request = generateInvoiceTemplate(
+          data,
+          time,
+          groupedTimeEntries.projects
+        );
+        const response = await createDraftInvoice(request);
+        return {
+          groupedTimeEntries,
+          data,
+          id: response.id,
+          number: response.number,
+          date: response.date,
+          dueDate: response.dueDate,
+          totalNetAmount: response.totalNetAmount,
+          totalTaxAmount: response.totalTaxAmount,
+          totalGrossAmount: response.totalGrossAmount,
+        };
+      } catch (error) {
+        return {
+          groupedTimeEntries,
+          ...error,
+        };
+      }
+    })
+  );
 };

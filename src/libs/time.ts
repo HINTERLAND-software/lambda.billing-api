@@ -4,6 +4,7 @@ export const getTimeSpent = (seconds: number): string =>
   moment('2015-01-01').startOf('day').seconds(seconds).format('H:mm:ss');
 
 export const getHours = (seconds: number): number => seconds / 3600;
+export const getMinutes = (seconds: number): number => seconds / 60;
 
 export const round = (
   number: number,
@@ -19,6 +20,9 @@ export const getRoundedHours = (seconds: number = 0) => {
 
 export const formatDateForInvoice = (date: string) =>
   moment(date).format('DD.MM.YYYY');
+
+export const sortByDate = <T>(a: T, b: T) =>
+  moment(a['stop']).isBefore(moment(b['stop'])) ? -1 : 1;
 
 export class Time {
   private _moment: moment.Moment = moment();
