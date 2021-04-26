@@ -1,6 +1,6 @@
 import type { AWS } from '@serverless/typescript';
 
-import { billingData } from './src/functions';
+import { billing } from './src/functions';
 
 const serverlessConfiguration: AWS = {
   service: '${file(./package.json):name}',
@@ -85,7 +85,7 @@ const serverlessConfiguration: AWS = {
       ],
     },
   },
-  functions: { billingData },
+  functions: { billing },
 };
 
 module.exports = serverlessConfiguration;

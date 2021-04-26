@@ -7,7 +7,7 @@ export default {
     {
       http: {
         method: 'post',
-        path: 'billing-data',
+        path: 'billing',
         request: {
           schema: {
             'application/json': schema,

@@ -1,16 +1,32 @@
 export interface Grouped {
-  [customerId: string]: GroupedTimeEntries;
+  [customerId: string]: {
+    client: Client;
+    timeEntriesGroupedByProject: {
+      [projectId: string]: {
+        project: Project;
+        totalSecondsSpent: number;
+        timeEntries: TimeEntry[];
+      };
+    };
+  };
+}
+
+export interface Day {
+  date: string;
+  start: string;
+  stop: string;
+  totalSecondsSpent: number;
+  timeEntries: TimeEntry[];
 }
 
 export interface GroupedTimeEntries {
   client: Client;
-  timeEntriesGroupedByProject: {
-    [projectId: string]: {
-      project: Project;
-      totalSecondsSpent: number;
-      timeEntries: TimeEntry[];
-    };
-  };
+  projects: {
+    project: Project;
+    totalSecondsSpent: number;
+    timeEntries: TimeEntry[];
+    timeEntriesPerDay?: Day[];
+  }[];
 }
 
 export interface TimeEntry {
