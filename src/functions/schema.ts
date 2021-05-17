@@ -1,5 +1,6 @@
 export default {
   type: 'object',
+  additionalProperties: false,
   properties: {
     dryRun: {
       type: 'boolean',
@@ -7,15 +8,16 @@ export default {
     },
     label: {
       type: 'string',
-      default: 'billable',
     },
-    type: {
-      enum: ['debitoor', 'sheet'],
-      default: 'debitoor',
+    clientWhitelist: {
+      type: 'array',
+      items: {
+        type: 'string',
+      },
     },
     range: {
+      additionalProperties: false,
       type: 'object',
-      default: {},
       properties: {
         month: {
           type: 'integer',

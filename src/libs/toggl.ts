@@ -44,6 +44,15 @@ export const fetchTimeEntriesBetween = async (
   return result;
 };
 
+export const filterTimeEntries = (
+  timeEntries: TimeEntry[],
+  label?: string
+): TimeEntry[] =>
+  timeEntries.filter(
+    ({ tags }) =>
+      (!label || tags?.includes(label)) && !tags?.includes(LABEL_BILLED)
+  );
+
 export const fetchProject = async (projectId: string): Promise<Project> => {
   const cachedProject = projectCache.get()?.[projectId];
   if (cachedProject) return cachedProject;
@@ -68,6 +77,7 @@ export const bulkAddBilledTag = async (
   timeEntries: TimeEntry[]
 ): Promise<{ data: TimeEntry[] }> => {
   const timeEntryIds = timeEntries.map(({ id }) => id).join(',');
+  if (!timeEntryIds) return { data: [] };
   return fetch(`${BASE_URL}/${TIME_ENTRIES_PATH}/${timeEntryIds}`, {
     method: 'PUT',
     body: JSON.stringify({
@@ -80,7 +90,8 @@ export const bulkAddBilledTag = async (
 };
 
 export const groupByClients = async (
-  billableTimeEntries: TimeEntry[]
+  billableTimeEntries: TimeEntry[],
+  clientWhitelist: string[]
 ): Promise<GroupedTimeEntries[]> => {
   const clients: Grouped = {};
   for (let i = 0; i < billableTimeEntries.length; i++) {
@@ -105,8 +116,12 @@ export const groupByClients = async (
     };
   }
 
-  return Object.values(clients).map(
-    ({ client, timeEntriesGroupedByProject }) => {
+  return Object.values(clients)
+    .filter(
+      ({ client }) =>
+        !clientWhitelist?.length || clientWhitelist.includes(client.name)
+    )
+    .map(({ client, timeEntriesGroupedByProject }) => {
       return {
         client,
         projects: Object.values(timeEntriesGroupedByProject).map((project) => ({
@@ -114,8 +129,7 @@ export const groupByClients = async (
           timeEntries: project.timeEntries.sort(sortByDate),
         })),
       };
-    }
-  );
+    });
 };
 
 export const enrichWithTimeEntriesByDay = (

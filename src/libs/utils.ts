@@ -1,4 +1,7 @@
 import nodeFetch, { RequestInit } from 'node-fetch';
+import { Time } from './time';
+import type { FromSchema } from 'json-schema-to-ts';
+import schema from 'src/functions/schema';
 
 export const getEnvironment = (): string => {
   const { STAGE, NODE_ENV = 'development' } = process.env;
@@ -71,3 +74,32 @@ export class Cache<T> {
 
 export const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
+
+export type Range = {
+  month?: number;
+  year?: number;
+};
+
+export type EventBody = FromSchema<typeof schema>;
+
+export type Config = Omit<EventBody, 'dryRun' | 'range'> & {
+  dryRun: boolean;
+  time: Time;
+  range: {
+    from: string;
+    to: string;
+  };
+};
+
+export const getConfig = (config: EventBody = {}): Config => {
+  const time = new Time(config.range?.month, config.range?.year);
+  return {
+    ...config,
+    range: {
+      from: time.startOfMonthFormatted,
+      to: time.endOfMonthFormatted,
+    },
+    dryRun: config.dryRun !== undefined ?? getEnvironment() !== 'production',
+    time,
+  };
+};
