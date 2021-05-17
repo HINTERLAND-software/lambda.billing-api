@@ -144,7 +144,7 @@ export const enrichWithTimeEntriesByDay = (
           const startDate = moment(entry.start);
           const endDate = moment(entry.stop);
           if (startDate.day === endDate.day) {
-            const key = startDate.format('ddd DD.MM.YYYY');
+            const key = startDate.format('ddd YYYY/MM/DD');
             const previous = acc[key] || ({} as Day);
             const {
               totalSecondsSpent = 0,
@@ -162,7 +162,7 @@ export const enrichWithTimeEntriesByDay = (
               },
             };
           }
-          throw new Error('Start day and end day are not the same');
+          throw new Error('Start date and end date are not the same');
         }, {} as { [date: string]: Day })
       ).sort(sortByDate),
     })),

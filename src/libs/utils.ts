@@ -82,19 +82,21 @@ export type Range = {
 
 export type EventBody = FromSchema<typeof schema>;
 
-export type Config = Omit<EventBody, 'dryRun' | 'range'> & {
-  dryRun: boolean;
+export type Config = {
   time: Time;
+  dryRun: boolean;
   range: {
     from: string;
     to: string;
   };
 };
 
-export const getConfig = (config: EventBody = {}): Config => {
-  const time = new Time(config.range?.month, config.range?.year);
+export const getConfig = <T extends EventBody>(
+  config?: T
+): Omit<EventBody, 'dryRun' | 'range'> & Config => {
+  const time = new Time(config?.range?.month, config?.range?.year);
   return {
-    ...config,
+    ...(config || {}),
     range: {
       from: time.startOfMonthFormatted,
       to: time.endOfMonthFormatted,

@@ -16,14 +16,22 @@ const formatSeconds = (seconds: number) => {
 };
 
 export const createCsv = (clients: GroupedTimeEntries[]) => {
+  const header = [
+    'Date',
+    'Start',
+    'End',
+    'Pause',
+    'Description',
+    'Location',
+    'Total',
+    'Active',
+  ];
   return clients.map((client) => ({
     name: client.client.name,
     projects: client.projects.map((project) => ({
       name: project.project.name,
       csv: [
-        ['date', 'start', 'end', 'pause', 'description', 'location']
-          .map(wrap)
-          .join(';'),
+        header.map(wrap).join(';'),
         ...project.timeEntriesPerDay
           ?.map(
             ({
@@ -61,20 +69,14 @@ export const createCsv = (clients: GroupedTimeEntries[]) => {
                 description,
                 total: formatSeconds(totalSeconds),
                 active: formatSeconds(activeSeconds),
+                location: 'Offsite',
               };
 
               return result;
             }
           )
-          .map(({ date, start, end, pause, description }) =>
-            [
-              wrap(date),
-              wrap(start),
-              wrap(end),
-              wrap(pause),
-              wrap(description),
-              wrap('Offsite'),
-            ].join(';')
+          .map((result) =>
+            header.map((h) => wrap(result[h.toLowerCase()])).join(';')
           ),
       ].join('\n'),
     })),
