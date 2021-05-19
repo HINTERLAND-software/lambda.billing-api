@@ -26,6 +26,14 @@ const productCache = new Cache<{ [key: string]: Product }>(
   {}
 );
 
+export const fetchDraftInvoiceAsHtml = async (draftInvoiceId: string) => {
+  return fetch(
+    `${BASE_URL}/sales/draftinvoices/${draftInvoiceId}/html/v1`,
+    undefined,
+    false
+  );
+};
+
 export const fetchCustomers = async (): Promise<Customer[]> => {
   const customers =
     customerCache.get() || (await fetch(`${BASE_URL}/${CUSTOMERS_PATH}`));

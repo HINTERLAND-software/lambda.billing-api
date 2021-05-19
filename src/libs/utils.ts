@@ -2,7 +2,7 @@ import nodeFetch, { RequestInit } from 'node-fetch';
 import { Time } from './time';
 import type { FromSchema } from 'json-schema-to-ts';
 import schema from 'src/functions/schema';
-import translations, { Locale } from 'src/translations';
+import translations, { Locale } from '../translations';
 
 export const getEnvironment = (): string => {
   const { STAGE, NODE_ENV = 'development' } = process.env;
@@ -28,7 +28,8 @@ export class Logger {
 
 export const initFetch = (authorization) => async (
   url: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  jsonResponse = true
 ): Promise<any> => {
   options.method = options.method || 'GET';
 
@@ -42,14 +43,17 @@ export const initFetch = (authorization) => async (
 
   const response = await nodeFetch(url, options);
   try {
-    const json = await response.json();
+    const json = await (jsonResponse ? response.json() : response.text());
     if (json['errors'] || (json['message'] && json['code']))
       return Promise.reject(json);
+
     return json;
   } catch (error) {
+    Logger.error(error);
     return Promise.reject(
       `[${response.status}] - ${response.statusText} (${response.url})`
     );
+  } finally {
   }
 };
 

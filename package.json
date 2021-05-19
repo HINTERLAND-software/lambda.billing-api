@@ -45,6 +45,7 @@
     "aws-sdk": "^2.824.0",
     "moment": "^2.29.1",
     "node-fetch": "^2.6.1",
+    "puppeteer": "^9.1.1",
     "source-map-support": "^0.5.19"
   }
 }
