@@ -2,6 +2,7 @@ import nodeFetch, { RequestInit } from 'node-fetch';
 import { Time } from './time';
 import type { FromSchema } from 'json-schema-to-ts';
 import schema from 'src/functions/schema';
+import translations, { Locale } from 'src/translations';
 
 export const getEnvironment = (): string => {
   const { STAGE, NODE_ENV = 'development' } = process.env;
@@ -92,16 +93,45 @@ export type Config = {
 };
 
 export const getConfig = <T extends EventBody>(
-  config?: T
+  event?: T
 ): Omit<EventBody, 'dryRun' | 'range'> & Config => {
-  const time = new Time(config?.range?.month, config?.range?.year);
+  const time = new Time(event?.range?.month, event?.range?.year);
   return {
-    ...(config || {}),
+    ...(event || {}),
     range: {
       from: time.startOfMonthFormatted,
       to: time.endOfMonthFormatted,
     },
-    dryRun: config.dryRun !== undefined ?? getEnvironment() !== 'production',
+    dryRun: event.dryRun ?? getEnvironment() !== 'production',
     time,
   };
+};
+
+export const translate = (
+  locale: Locale,
+  key: string,
+  replacements: Record<string, string | number> = {}
+): string => {
+  if (!translations[locale]) {
+    throw new Error(
+      `Translation locale "${locale}" not found, must be one of ${Object.keys(
+        translations
+      ).join(', ')}`
+    );
+  }
+  const [, translation] = Object.entries(translations[locale]).find(
+    ([translationKey]) => translationKey === key
+  );
+  if (!translation) {
+    throw new Error(
+      `Translation key "${key}" not found, must be one of ${Object.keys(
+        translations[locale]
+      ).join(', ')}`
+    );
+  }
+  return Object.entries(replacements).reduce(
+    (acc, [key, value]) =>
+      acc.replace(new RegExp(`{{${key}}}`, 'g'), `${value}`),
+    translation
+  );
 };

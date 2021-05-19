@@ -1,8 +1,11 @@
-import { CX, SKU } from './constants';
+import { Locale } from 'src/translations';
+import { CX, LANG, LIST_BY_DATES, SKU } from './constants';
 
 export interface CustomerMeta {
   [CX]?: string;
   [SKU]?: string;
+  [LANG]?: Locale;
+  [LIST_BY_DATES]?: string;
 }
 
 export interface Customer {
@@ -25,7 +28,7 @@ export interface Attachment {
 export interface Product {
   name: string;
   description: string;
-  unitId: string;
+  unitId: number;
   netUnitSalesPrice: number;
   grossUnitSalesPrice: number;
   calculatedPrice: string;

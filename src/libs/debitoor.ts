@@ -1,4 +1,4 @@
-import { Cache, initFetch } from './utils';
+import { Cache, Config, initFetch, translate } from './utils';
 import * as qs from 'querystring';
 import {
   CustomerMeta,
@@ -9,8 +9,9 @@ import {
   DraftInvoiceResponse,
 } from './debitoor-types';
 import { GroupedTimeEntries, TimeEntry } from './toggl-types';
-import { Time, getRoundedHours, formatDateForInvoice } from './time';
-import { CX, SKU, LABEL_CX_PREFIX } from './constants';
+import { getRoundedHours, formatDateForInvoice, sortByDate } from './time';
+import { CX, SKU, LANG, LABEL_CX_PREFIX, LIST_BY_DATES } from './constants';
+import { Locale } from 'src/translations';
 
 const BASE_URL = 'https://api.debitoor.com/api';
 const CUSTOMERS_PATH = 'customers/v2';
@@ -53,7 +54,12 @@ export const createDraftInvoice = async (
 };
 
 const getCustomerMeta = (notes: string = ''): CustomerMeta => {
-  const response = { [CX]: null, [SKU]: null };
+  const response = {
+    [CX]: null,
+    [SKU]: null,
+    [LANG]: null,
+    [LIST_BY_DATES]: null,
+  };
   if (!notes) return response;
   const data = notes.match(/{{(.*)}}/)?.[1] || '';
   return data.split(';').reduce((acc, set) => {
@@ -95,47 +101,99 @@ export const fetchCustomerData = async (
     throw new Error(`Customer "${customerName}" not found`);
   }
   const product = await fetchProductBySku(meta.sku);
+  if (!product) {
+    throw new Error(`Product "${meta.sku}" not found`);
+  }
   return { product, customer, meta };
 };
 
-const sanitizeTimeEntries = (timeEntries: TimeEntry[] = []) => {
-  const filteredAndMapped = timeEntries.map(
-    ({ description, stop }) =>
-      `  - ${description} (${formatDateForInvoice(stop)})`
-  );
-  return filteredAndMapped.join('\n');
+const getRowsByEntry = (
+  timeEntries: TimeEntry[] = [],
+  locale: Locale
+): string[] => {
+  const reduced = timeEntries.reduce((acc, { description, stop }) => {
+    return {
+      ...acc,
+      [description]: [...(acc[description] || []), stop].sort(sortByDate),
+    };
+  }, {} as { [description: string]: string[] });
+
+  return Object.entries(reduced)
+    .sort(([, [a]], [, [b]]) => sortByDate(a, b))
+    .map(([description, dates]) => {
+      const joinedDates = [
+        ...new Set(dates.map((date) => formatDateForInvoice(date, locale))),
+      ].join(', ');
+      return `  - ${description} (${joinedDates})`;
+    });
+};
+
+const getRowsByDate = (
+  timeEntries: TimeEntry[] = [],
+  locale: Locale
+): string[] => {
+  const reduced = timeEntries.reduce((acc, { stop, description }) => {
+    const date = formatDateForInvoice(stop, locale);
+    return {
+      ...acc,
+      [date]: [...(acc[date] || []), description].sort(),
+    };
+  }, {} as { [date: string]: string[] });
+
+  return Object.entries(reduced)
+    .sort(([a], [b]) => sortByDate(a, b))
+    .map(([date, descriptions]) => {
+      const joinedDescriptions = [...new Set(descriptions.sort())]
+        .map((d) => `     - ${d}`)
+        .join('\n');
+      return `  ${date}\n${joinedDescriptions}`;
+    });
+};
+
+const languageCodes = {
+  de: 'de-DE',
+  en: 'en-DE',
 };
 
 export const generateInvoiceTemplate = (
   {
     product,
     customer,
+    meta,
   }: {
     product: Product;
     customer: Customer;
     meta: CustomerMeta;
   },
-  time: Time,
-  projects: GroupedTimeEntries['projects']
+  projects: GroupedTimeEntries['projects'],
+  config: Config
 ): DraftInvoiceRequest => {
+  const { time } = config;
   const lines: Line[] = projects.map(
     ({ project, totalSecondsSpent, timeEntries }) => {
       return {
         productId: product.id,
         taxEnabled: product.taxEnabled,
         taxRate: product.rate,
+        unitId: product.unitId,
         unitNetPrice: product.netUnitSalesPrice,
         productName: project.name,
         quantity: getRoundedHours(totalSecondsSpent) || 0,
-        description: sanitizeTimeEntries(timeEntries),
+        description: meta.listbydates
+          ? getRowsByDate(timeEntries, meta.lang).join('\n\n')
+          : getRowsByEntry(timeEntries, meta.lang).join('\n'),
       };
     }
   );
 
-  const notes = `Leistungszeitraum ${formatDateForInvoice(
-    time.startOfMonthFormatted
-  )} - ${formatDateForInvoice(time.endOfMonthFormatted)}`;
-  const additionalNotes = `Zusätzlich anfallende Arbeiten werden zu einem Stundensatz von ${product.netUnitSalesPrice}€ (Netto) verrechnet.`;
+  const notes = translate(meta.lang, 'PERFORMANCE_PERIOD', {
+    from: formatDateForInvoice(time.startOfMonthFormatted, meta.lang),
+    to: formatDateForInvoice(time.endOfMonthFormatted, meta.lang),
+  });
+  const additionalNotes = translate(meta.lang, 'ADDITIONAL_NOTES', {
+    netUnitSalesPrice: product.netUnitSalesPrice,
+  });
+
   return {
     customerName: customer.name,
     customerAddress: customer.address,
@@ -146,13 +204,14 @@ export const generateInvoiceTemplate = (
     paymentTermsId: customer.paymentTermsId,
     notes,
     additionalNotes,
+    languageCode: languageCodes[meta.lang] || languageCodes.de,
     lines,
   };
 };
 
 export const createDraftInvoices = (
   grouped: GroupedTimeEntries[],
-  time: Time
+  config: Config
 ): Promise<Array<DraftInvoiceResponse>> => {
   return Promise.all(
     grouped.map(async (groupedTimeEntries) => {
@@ -160,8 +219,8 @@ export const createDraftInvoices = (
         const data = await fetchCustomerData(groupedTimeEntries.client.name);
         const request = generateInvoiceTemplate(
           data,
-          time,
-          groupedTimeEntries.projects
+          groupedTimeEntries.projects,
+          config
         );
         const response = await createDraftInvoice(request);
         return {

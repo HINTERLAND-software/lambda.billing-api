@@ -6,6 +6,7 @@ import {
   groupByClients,
   fetchTimeEntriesBetween,
   filterTimeEntries,
+  sanitizeTimeEntries,
 } from '@libs/toggl';
 import { createDraftInvoices } from '@libs/debitoor';
 import { middyfy } from '@libs/lambda';
@@ -22,8 +23,8 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
   event
 ) => {
   try {
-    const { time, ...config } = getConfig(event.body);
-    const { dryRun, label, clientWhitelist } = config;
+    const config = getConfig(event.body);
+    const { dryRun, label, clientWhitelist, time } = config;
 
     const timeEntries = await fetchTimeEntriesBetween(
       time.startOfMonthISO,
@@ -31,14 +32,17 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
     );
 
     const billableTimeEntries = filterTimeEntries(timeEntries, label);
+    const sanitizedTimeEntries = sanitizeTimeEntries(billableTimeEntries);
 
-    const clients = await groupByClients(billableTimeEntries, clientWhitelist);
+    const clients = await groupByClients(sanitizedTimeEntries, clientWhitelist);
 
     let debitoor: DraftInvoiceResponse[] = null;
     if (!dryRun) {
-      debitoor = await createDraftInvoices(clients, time);
-      await bulkAddBilledTag(billableTimeEntries);
+      debitoor = await createDraftInvoices(clients, config);
+      await bulkAddBilledTag(sanitizedTimeEntries);
     }
+
+    delete config.time;
 
     return httpResponse(
       200,

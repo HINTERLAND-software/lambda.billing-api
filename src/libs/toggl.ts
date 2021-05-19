@@ -1,4 +1,4 @@
-import { Cache, initFetch } from './utils';
+import { Cache, initFetch, Logger } from './utils';
 import * as qs from 'querystring';
 import { LABEL_BILLED } from './constants';
 import {
@@ -48,9 +48,29 @@ export const filterTimeEntries = (
   timeEntries: TimeEntry[],
   label?: string
 ): TimeEntry[] =>
-  timeEntries.filter(
-    ({ tags }) =>
-      (!label || tags?.includes(label)) && !tags?.includes(LABEL_BILLED)
+  timeEntries
+    .filter(({ description, pid }) => {
+      if (!pid || !description) {
+        Logger.error(
+          `Project of time entry "${description} <${pid}>" not found`
+        );
+      }
+      return description && pid;
+    })
+    .filter(
+      ({ tags }) =>
+        (!label || tags?.includes(label)) && !tags?.includes(LABEL_BILLED)
+    );
+
+export const sanitizeTimeEntries = (timeEntries: TimeEntry[]): TimeEntry[] =>
+  timeEntries.reduce(
+    (acc, entry) => [
+      ...acc,
+      ...entry.description
+        .split(',')
+        .map((d) => ({ ...entry, description: d.trim() })),
+    ],
+    []
   );
 
 export const fetchProject = async (projectId: string): Promise<Project> => {
@@ -109,7 +129,11 @@ export const groupByClients = async (
       timeEntriesGroupedByProject: {
         [pid]: {
           project,
-          totalSecondsSpent: totalSecondsSpent + duration,
+          totalSecondsSpent: timeEntries.every(
+            ({ id: existingId }) => existingId !== id
+          )
+            ? totalSecondsSpent + duration
+            : totalSecondsSpent,
           timeEntries: [...timeEntries, { duration, id, ...rest } as TimeEntry],
         },
       },

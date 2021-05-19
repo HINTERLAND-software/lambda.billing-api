@@ -42,14 +42,7 @@ export const createCsv = (clients: GroupedTimeEntries[]) => {
               totalSecondsSpent: activeSeconds,
             }) => {
               const description = [
-                ...new Set(
-                  timeEntries.reduce((acc, { description }) => {
-                    return [
-                      ...acc,
-                      ...description.split(',').map((x) => x.trim()),
-                    ];
-                  }, [])
-                ),
+                ...new Set(timeEntries.map(({ description }) => description)),
               ]
                 .sort()
                 .join(', ');

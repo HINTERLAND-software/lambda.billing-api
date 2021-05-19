@@ -7,6 +7,7 @@ import {
   fetchTimeEntriesBetween,
   enrichWithTimeEntriesByDay,
   filterTimeEntries,
+  sanitizeTimeEntries,
 } from '@libs/toggl';
 import { middyfy } from '@libs/lambda';
 
@@ -31,13 +32,14 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
     );
 
     const billableTimeEntries = filterTimeEntries(timeEntries, label);
+    const sanitizedTimeEntries = sanitizeTimeEntries(billableTimeEntries);
 
-    let clients = await groupByClients(billableTimeEntries, clientWhitelist);
+    let clients = await groupByClients(sanitizedTimeEntries, clientWhitelist);
     clients = enrichWithTimeEntriesByDay(clients);
 
     const csv = createCsv(clients);
     if (!dryRun) {
-      await bulkAddBilledTag(billableTimeEntries);
+      await bulkAddBilledTag(sanitizedTimeEntries);
     }
 
     return httpResponse(
