@@ -26,6 +26,7 @@
     "jest-cli": "^26.6.3",
     "json-schema-to-ts": "^1.5.0",
     "prettier": "^2.2.1",
+    "puppeteer": "^9.1.1",
     "serverless": "^2.18.0",
     "serverless-domain-manager": "^5.1.0",
     "serverless-offline": "^6.8.0",
@@ -43,9 +44,10 @@
     "@middy/core": "^1.5.0",
     "@middy/http-json-body-parser": "^1.5.0",
     "aws-sdk": "^2.824.0",
+    "chrome-aws-lambda": "^9.1.0",
     "moment": "^2.29.1",
     "node-fetch": "^2.6.1",
-    "puppeteer": "^9.1.1",
+    "puppeteer-core": "^9.1.1",
     "source-map-support": "^0.5.19"
   }
 }

@@ -2,7 +2,7 @@ import 'source-map-support/register';
 
 import { Logger, clearCaches } from '@libs/utils';
 import { middyfy } from '@libs/lambda';
-import puppeteer from 'puppeteer';
+import chromium from 'chrome-aws-lambda';
 
 import {
   httpResponse,
@@ -28,7 +28,7 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
       await fetchDraftInvoiceAsHtml(draftInvoiceId)
     );
 
-    const browser = await puppeteer.launch();
+    const browser = await chromium.puppeteer.launch();
     const page = await browser.newPage();
     await page.setContent(html);
 
