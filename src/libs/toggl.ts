@@ -11,6 +11,7 @@ import {
 } from './toggl-types';
 import moment from 'moment';
 import { sortByDate } from './time';
+import { Customer } from './debitoor-types';
 
 const BASE_URL = 'https://api.track.toggl.com/api/v8';
 const TIME_ENTRIES_PATH = 'time_entries';
@@ -46,9 +47,9 @@ export const fetchTimeEntriesBetween = async (
 
 export const filterTimeEntries = (
   timeEntries: TimeEntry[],
-  label?: string
-): TimeEntry[] =>
-  timeEntries
+  labels?: string[]
+): TimeEntry[] => {
+  return timeEntries
     .filter(({ description, pid }) => {
       if (!pid || !description) {
         Logger.error(
@@ -59,16 +60,20 @@ export const filterTimeEntries = (
     })
     .filter(
       ({ tags }) =>
-        (!label || tags?.includes(label)) && !tags?.includes(LABEL_BILLED)
+        (!labels?.length || tags?.some((tag) => labels.includes(tag))) &&
+        !tags?.includes(LABEL_BILLED)
     );
+};
 
 export const sanitizeTimeEntries = (timeEntries: TimeEntry[]): TimeEntry[] =>
   timeEntries.reduce(
     (acc, entry) => [
       ...acc,
-      ...entry.description
-        .split(',')
-        .map((d) => ({ ...entry, description: d.trim() })),
+      ...entry.description.split(',').map((d, i) => ({
+        ...entry,
+        description: d.trim(),
+        duration: i === 0 ? entry.duration : 0,
+      })),
     ],
     []
   );
@@ -111,7 +116,7 @@ export const bulkAddBilledTag = async (
 
 export const groupByClients = async (
   billableTimeEntries: TimeEntry[],
-  clientWhitelist: string[]
+  customerWhitelist?: string[]
 ): Promise<GroupedTimeEntries[]> => {
   const clients: Grouped = {};
   for (let i = 0; i < billableTimeEntries.length; i++) {
@@ -143,7 +148,7 @@ export const groupByClients = async (
   return Object.values(clients)
     .filter(
       ({ client }) =>
-        !clientWhitelist?.length || clientWhitelist.includes(client.name)
+        !customerWhitelist?.length || customerWhitelist.includes(client.name)
     )
     .map(({ client, timeEntriesGroupedByProject }) => {
       return {

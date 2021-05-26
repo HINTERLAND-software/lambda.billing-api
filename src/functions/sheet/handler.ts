@@ -24,17 +24,17 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
 ) => {
   try {
     const { time, ...config } = getConfig(event.body);
-    const { dryRun, label, clientWhitelist } = config;
+    const { dryRun, labels, customerWhitelist } = config;
 
     const timeEntries = await fetchTimeEntriesBetween(
       time.startOfMonthISO,
       time.endOfMonthISO
     );
 
-    const billableTimeEntries = filterTimeEntries(timeEntries, label);
+    const billableTimeEntries = filterTimeEntries(timeEntries, labels);
     const sanitizedTimeEntries = sanitizeTimeEntries(billableTimeEntries);
 
-    let clients = await groupByClients(sanitizedTimeEntries, clientWhitelist);
+    let clients = await groupByClients(sanitizedTimeEntries, customerWhitelist);
     clients = enrichWithTimeEntriesByDay(clients);
 
     const csv = createCsv(clients);
@@ -52,8 +52,8 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
             from: time.startOfMonthFormatted,
             to: time.endOfMonthFormatted,
           },
-          label,
-          clientWhitelist,
+          labels,
+          customerWhitelist,
         },
         csv,
         clients: dryRun ? clients : null,

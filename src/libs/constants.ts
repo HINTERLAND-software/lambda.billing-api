@@ -1,9 +1,10 @@
-export const CX = 'cx';
 export const SKU = 'sku';
 export const LANG = 'lang';
-export const LIST_BY_DATES = 'listbydates';
+export const FLAGS = 'flags';
+export const COMPANY = 'company';
 
-export const LABEL_BILLABLE = 'billable';
+export const LIST_BY_DATES = 'listByDates';
+export const MAIL = 'email';
+export const BOOK = 'book';
+
 export const LABEL_BILLED = 'billed';
-
-export const LABEL_CX_PREFIX = `${CX}:`;

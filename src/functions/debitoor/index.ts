@@ -17,7 +17,7 @@ export default {
     },
     {
       schedule: {
-        rate: 'cron(0 21 L * ? *)', // last day of the month 9pm
+        rate: 'cron(0 3 1 * ? *)', // last day of the month 9pm
         enabled: '${self:custom.enabled.${self:provider.stage}}',
       },
     },

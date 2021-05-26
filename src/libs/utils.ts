@@ -26,6 +26,9 @@ export class Logger {
   }
 }
 
+export const wait = (ms: number) =>
+  new Promise((resolve) => setTimeout(resolve, ms));
+
 export const initFetch = (authorization) => async (
   url: string,
   options: RequestInit = {},
@@ -37,24 +40,30 @@ export const initFetch = (authorization) => async (
     Authorization: authorization,
     ...(options.headers || {}),
   };
-  if (options.method === 'POST') {
-    options.headers['Content-type'] = 'application/json';
+  if (['POST', 'PUT', 'PATCH'].includes(options.method)) {
+    options.headers['Content-type'] =
+      options.headers['Content-type'] || 'application/json';
   }
 
   const response = await nodeFetch(url, options);
   try {
-    const json = await (jsonResponse ? response.json() : response.text());
-    if (json['errors'] || (json['message'] && json['code']))
-      return Promise.reject(json);
+    const res = await (jsonResponse ? response.json() : response.text());
+    if (res['errors'] || (res['message'] && res['code']))
+      return Promise.reject({ ...res, url });
 
-    return json;
+    return res;
   } catch (error) {
     Logger.error(error);
     return Promise.reject(
       `[${response.status}] - ${response.statusText} (${response.url})`
     );
-  } finally {
   }
+};
+export const download = async (url: string): Promise<NodeJS.ReadableStream> => {
+  const response = await nodeFetch(url);
+  if (!response.ok)
+    throw new Error(`unexpected response ${response.statusText}`);
+  return response.body;
 };
 
 let caches = {};
@@ -90,6 +99,7 @@ export type EventBody = FromSchema<typeof schema>;
 export type Config = {
   time: Time;
   dryRun: boolean;
+  setBilled: boolean;
   range: {
     from: string;
     to: string;
@@ -100,19 +110,21 @@ export const getConfig = <T extends EventBody>(
   event?: T
 ): Omit<EventBody, 'dryRun' | 'range'> & Config => {
   const time = new Time(event?.range?.month, event?.range?.year);
+  const isProduction = getEnvironment() === 'production';
   return {
     ...(event || {}),
     range: {
       from: time.startOfMonthFormatted,
       to: time.endOfMonthFormatted,
     },
-    dryRun: event.dryRun ?? getEnvironment() !== 'production',
+    dryRun: event.dryRun ?? !isProduction,
+    setBilled: event.setBilled ?? isProduction,
     time,
   };
 };
 
 export const translate = (
-  locale: Locale,
+  locale: Locale = 'de',
   key: string,
   replacements: Record<string, string | number> = {}
 ): string => {

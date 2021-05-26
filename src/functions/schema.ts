@@ -6,10 +6,17 @@ export default {
       type: 'boolean',
       default: false,
     },
-    label: {
-      type: 'string',
+    setBilled: {
+      type: 'boolean',
+      default: false,
     },
-    clientWhitelist: {
+    labels: {
+      type: 'array',
+      items: {
+        type: 'string',
+      },
+    },
+    customerWhitelist: {
       type: 'array',
       items: {
         type: 'string',

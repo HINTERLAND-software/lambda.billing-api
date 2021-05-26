@@ -25,7 +25,7 @@ export const getRoundedHours = (seconds: number = 0) => {
 };
 
 export const formatDateForInvoice = (date: string, locale: Locale = 'de') =>
-  moment(date).format(formats[locale] || formats.de);
+  moment(date).format(formats[locale || 'de'] || formats.de);
 
 export const sortByDate = <T>(a: T, b: T) =>
   moment(a['stop'] ?? a).isBefore(moment(b['stop'] ?? b)) ? -1 : 1;

@@ -1,11 +1,30 @@
 import { Locale } from 'src/translations';
-import { CX, LANG, LIST_BY_DATES, SKU } from './constants';
+import { COMPANY, LANG, FLAGS, SKU } from './constants';
 
+export type CompanyId = 'jr' | 'default';
 export interface CustomerMeta {
-  [CX]?: string;
-  [SKU]?: string;
+  [SKU]: string;
   [LANG]?: Locale;
-  [LIST_BY_DATES]?: string;
+  [COMPANY]?: CompanyId;
+  [FLAGS]?: string[];
+}
+
+export interface CustomerData {
+  product: Product;
+  customer: Customer;
+  meta: CustomerMeta;
+}
+
+export interface Company {
+  id: string;
+  name: string;
+  website: string;
+  email: string;
+  logo: string;
+}
+
+export interface GlobalMeta {
+  companies: Record<CompanyId, Company>;
 }
 
 export interface Customer {
@@ -17,6 +36,7 @@ export interface Customer {
   countryCode: string;
   notes: string;
   paymentTermsId: number;
+  customPaymentTermsDays?: number;
   id: string;
   createdDate: string;
   lastModifiedDate: string;
@@ -83,13 +103,6 @@ export interface Line {
   //seller is from the EU
   //Optional, can be null
   productOrService?: string;
-}
-
-export interface DraftInvoiceResponse extends DraftInvoiceRequest {
-  id: string;
-  totalNetAmount: number;
-  totalTaxAmount: number;
-  totalGrossAmount: number;
 }
 
 export interface DraftInvoiceRequest {
@@ -199,4 +212,701 @@ export interface DraftInvoiceRequest {
   //Show invoice as paid on invoice portal to indicate an online payment happened.
   //Optional, can be null
   displayAsPaid?: boolean;
+}
+
+export interface LogoResponse {
+  logoUrl: string;
+}
+
+// GENERATED WITH https://jvilk.com/MakeTypes/
+export interface Settings {
+  customerSettings: CustomerSettings;
+  supplierSettings: SupplierSettings;
+  invoiceSettings: InvoiceSettings;
+  quoteSettings: QuoteSettings;
+  deliveryNoteSettings: DeliveryNoteSettings;
+  companyProfile: CompanyProfile;
+  reportsSettings: ReportsSettings;
+  shoeboxEmailAlias: string;
+  recurringSettings: RecurringSettings;
+  templateSettings: TemplateSettings;
+  exportSettings: ExportSettingsOrOrigin;
+  creditNoteSettings: CreditNoteSettings;
+  notifications?: null[] | null;
+  marketingConsent: boolean;
+  termsAndConditionsConsent: string;
+  id: string;
+  origin: ExportSettingsOrOrigin;
+  accountEmail: string;
+  vatReported?: string[] | null;
+  accountSettings: AccountSettings;
+  featuresQuota: FeaturesQuota;
+  featuresCount: FeaturesCount;
+  strictBookkeeping: boolean;
+  documentRenderingOptimizationEnabled: boolean;
+  createdDate: string;
+  ccInfo: CcInfo;
+  shoeboxEmailDomain: string;
+}
+export interface CustomerSettings {
+  lastCustomerNumber: number;
+}
+export interface SupplierSettings {
+  lastSupplierNumber: number;
+}
+export interface InvoiceSettings {
+  lastInvoiceNumber: string;
+  lastUsedPriceDisplayType: string;
+  lastPaymentTermsId: number;
+  lastInvoiceDate: string;
+  lastInvoiceNumberFormat: string;
+  defaultAdditionalNotes: string;
+  defaultNotes: string;
+  lastInvoiceLanguageCode: string;
+}
+export interface QuoteSettings {
+  lastQuoteNumber: string;
+  lastQuoteDate: string;
+  lastQuoteNumberFormat: string;
+  defaultAdditionalNotes: string;
+}
+export interface DeliveryNoteSettings {
+  lastDeliveryNoteNumber: string;
+}
+export interface CompanyProfile {
+  taxEnabled: boolean;
+  cashAccounting: boolean;
+  email: string;
+  telephoneNumber: string;
+  name: string;
+  address: string;
+  countryCode: string;
+  responsibleName: string;
+  districtCourt: string;
+  webSite: string;
+  companyType: string;
+  responsiblePosition: string;
+  industry: string;
+  bankName: string;
+  accountHolderName: string;
+  swiftCode: string;
+  ibanCode: string;
+  vatNumber: string;
+  businessType: string;
+  euVatNumber: string;
+  country: string;
+  logoUrl: string;
+}
+export interface ReportsSettings {
+  fromDate: string;
+  toDate: string;
+}
+export interface RecurringSettings {
+  deliveryType: string;
+  frequency: string;
+}
+export interface TemplateSettings {
+  current: string;
+  templates: Templates;
+}
+export interface Templates {
+  free: Free;
+  standard: Standard;
+  classic: Classic;
+  standardLight: StandardLight;
+  elegant: Elegant;
+  fullHeader: FullHeaderOrBlocks;
+  blocks: FullHeaderOrBlocks;
+  bold: Bold;
+}
+export interface Free {
+  global: Global;
+  documents: Documents;
+}
+export interface Global {
+  accentColor: string;
+  accentContrastColor: string;
+}
+export interface Documents {
+  invoice: InvoiceOrQuoteOrCreditNote;
+  quote: InvoiceOrQuoteOrCreditNote;
+  deliveryNote: DeliveryNote;
+  creditNote: InvoiceOrQuoteOrCreditNote;
+}
+export interface InvoiceOrQuoteOrCreditNote {
+  showTotal: boolean;
+  showVAT: boolean;
+}
+export interface DeliveryNote {
+  showAmounts: boolean;
+  showVAT: boolean;
+}
+export interface Standard {
+  global: Global1;
+  documents: Documents;
+}
+export interface Global1 {
+  accentColor: string;
+  accentContrastColor: string;
+  headerShowCustomerNumber: boolean;
+  headerAlignment: string;
+  headerShowReturnAddress: boolean;
+  headerShowCompanyName: boolean;
+  linesShowProductNumber: boolean;
+  linesShowQuantity: boolean;
+  linesShowUnit: boolean;
+  linesShowPrice: boolean;
+  linesShowPreview: boolean;
+  hideFooter: boolean;
+  showSignature: boolean;
+  showAmounts: boolean;
+  showTotal: boolean;
+  showVAT: boolean;
+  fontFamily: string;
+}
+export interface Classic {
+  global: Global2;
+  documents: Documents;
+}
+export interface Global2 {
+  accentContrastColor: string;
+  headerShowCustomerNumber: boolean;
+  headerAlignment: string;
+  headerShowReturnAddress: boolean;
+  headerShowCompanyName: boolean;
+  linesShowProductNumber: boolean;
+  linesShowQuantity: boolean;
+  linesShowUnit: boolean;
+  linesShowPrice: boolean;
+  linesShowPreview: boolean;
+  hideFooter: boolean;
+  showSignature: boolean;
+  showAmounts: boolean;
+  showTotal: boolean;
+  showVAT: boolean;
+  fontFamily: string;
+  accentColor: string;
+  borderColor: string;
+}
+export interface StandardLight {
+  global: Global1;
+  documents: Documents1;
+}
+export interface Documents1 {
+  invoice: Invoice;
+  quote: InvoiceOrQuoteOrCreditNote;
+  deliveryNote: DeliveryNote;
+  creditNote: InvoiceOrQuoteOrCreditNote;
+}
+export interface Invoice {
+  showTotal: boolean;
+  showVAT: boolean;
+  showSignature: boolean;
+}
+export interface Elegant {
+  global: Global3;
+  documents: Documents;
+}
+export interface Global3 {
+  accentContrastColor: string;
+  headerShowCustomerNumber: boolean;
+  headerAlignment: string;
+  headerShowReturnAddress: boolean;
+  headerShowCompanyName: boolean;
+  linesShowProductNumber: boolean;
+  linesShowQuantity: boolean;
+  linesShowUnit: boolean;
+  linesShowPrice: boolean;
+  linesShowPreview: boolean;
+  hideFooter: boolean;
+  showSignature: boolean;
+  showAmounts: boolean;
+  showTotal: boolean;
+  showVAT: boolean;
+  fontFamily: string;
+  compact: boolean;
+  linesColor: string;
+  headerShowLogo: boolean;
+}
+export interface FullHeaderOrBlocks {
+  global: Global4;
+  documents: Documents;
+}
+export interface Global4 {
+  alternateColor: string;
+  alternateContrastColor: string;
+  accentColor: string;
+  accentContrastColor: string;
+  headerShowCustomerNumber: boolean;
+  headerAlignment: string;
+  headerShowReturnAddress: boolean;
+  headerShowCompanyName: boolean;
+  linesShowProductNumber: boolean;
+  linesShowQuantity: boolean;
+  linesShowUnit: boolean;
+  linesShowPrice: boolean;
+  linesShowPreview: boolean;
+  hideFooter: boolean;
+  showSignature: boolean;
+  showAmounts: boolean;
+  showTotal: boolean;
+  showVAT: boolean;
+  fontFamily: string;
+}
+export interface Bold {
+  global: Global5;
+  documents: Documents;
+}
+export interface Global5 {
+  accentContrastColor: string;
+  headerShowCustomerNumber: boolean;
+  headerShowReturnAddress: boolean;
+  linesShowProductNumber: boolean;
+  linesShowQuantity: boolean;
+  linesShowUnit: boolean;
+  linesShowPrice: boolean;
+  linesShowPreview: boolean;
+  hideFooter: boolean;
+  showSignature: boolean;
+  showAmounts: boolean;
+  showTotal: boolean;
+  showVAT: boolean;
+  fontFamily: string;
+  linesColor: string;
+  headerShowLogo: boolean;
+  companyNameBorder: boolean;
+  footerColor: string;
+}
+export interface ExportSettingsOrOrigin {}
+export interface CreditNoteSettings {
+  lastCreditNoteNumberFormat: string;
+  lastCreditNoteNumber: string;
+  lastCreditNoteDate: string;
+}
+export interface AccountSettings {
+  signedUpPlan: string;
+  plan: string;
+  accountState: string;
+  signupDate: string;
+  frequency: string;
+  planStartDate: string;
+  externalPlan: string;
+  planPrice: number;
+  planCurrency: string;
+  paymentGiven: string;
+  nextBillingDate: string;
+}
+export interface FeaturesQuota {
+  matchBankTransactions: number;
+  convertQuotesToInvoices: number;
+  deliveryNoteFinalized: number;
+  reports: number;
+  exportDatev: number;
+  exportEconomic: number;
+  customLayout: number;
+  multiUser: number;
+  balanceSheetReport: number;
+  plReport: number;
+  vatReport: number;
+  documents: number;
+  quotes: number;
+  income: number;
+  editAndDeleteActions: number;
+}
+export interface FeaturesCount {
+  newResetDate: string;
+  documents: number;
+  quotes: number;
+  convertQuotesToInvoices: number;
+  matchBankTransactions: number;
+}
+export interface CcInfo {
+  provider: string;
+  debitoorBilling: DebitoorBilling;
+  type: string;
+  cardNumber: string;
+  cardType: string;
+  expiryDate: string;
+  billingInfo: BillingInfo;
+}
+export interface DebitoorBilling {
+  subscriptionId: string;
+  customerId: string;
+}
+export interface BillingInfo {
+  vatId: string;
+  email: string;
+  country: string;
+  company: string;
+  addressLine1: string;
+  zip: string;
+  city: string;
+}
+
+export interface DraftInvoiceResponse {
+  recurringId: string;
+  number: string;
+  sortNumber: string;
+  type: string;
+  date: string;
+  dueDate: string;
+  customerId: string;
+  customerEmail: string;
+  notes: string;
+  additionalNotes: string;
+  paymentTermsId: number;
+  customPaymentTermsDays: number;
+  customerName: string;
+  customerNumber: number;
+  customerAddress: string;
+  customerCountry: string;
+  customerCountryName: string;
+  customerCiNumber: string;
+  customerVatNumber: string;
+  priceDisplayType: string;
+  links?: LinksEntity[] | null;
+  creditedInvoiceId: string;
+  invoicedQuoteId: string;
+  invoicedDeliveryNoteId: string;
+  lines?: LinesEntity[] | null;
+  discountRate: number;
+  totalNetAmountBeforeDiscount: number;
+  totalNetLineDiscountAmount: number;
+  totalNetDiscountAmount: number;
+  totalNetAmount: number;
+  totalTaxAmount: number;
+  taxGroups?: TaxGroupsEntity[] | null;
+  incomeTaxDeductionGroups?: IncomeTaxDeductionGroupsEntity[] | null;
+  totalGrossAmount: number;
+  currency: string;
+  currencyRate: number;
+  baseCurrency: string;
+  baseCurrencyTotalNetAmount: number;
+  baseCurrencyTotalTaxAmount: number;
+  baseCurrencyTotalGrossAmount: number;
+  languageCode: string;
+  onlinePaymentProvider: string;
+  attachments?: AttachmentsEntity[] | null;
+  status: string;
+  vatDueMode: string;
+  treatAsIntraEU: boolean;
+  id: string;
+  reference: string;
+  booked: boolean;
+  sent: boolean;
+  sendDetails?: SendDetailsEntity[] | null;
+  history: History;
+  viewed: boolean;
+  displayAsPaid: boolean;
+  createdDate: string;
+  lastModifiedDate: string;
+  deletedDate: string;
+}
+export interface LinksEntity {
+  linkId: string;
+  type: string;
+  date: string;
+  createdDate: string;
+}
+export interface LinesEntity {
+  description: string;
+  quantity: number;
+  unitNetPrice: number;
+  unitGrossPrice: number;
+  unitId: number;
+  unitName: string;
+  lineDiscountRate: number;
+  productId: string;
+  productSku: string;
+  productName: string;
+  taxEnabled: boolean;
+  taxRate: number;
+  productOrService: string;
+  netAmountBeforeDiscount: number;
+  grossAmountBeforeDiscount: number;
+  netAmount: number;
+  grossAmount: number;
+  taxAmount: number;
+  baseCurrencyUnitNetPrice: number;
+  baseCurrencyUnitGrossPrice: number;
+  baseCurrencyNetAmount: number;
+  baseCurrencyGrossAmount: number;
+  baseCurrencyTaxAmount: number;
+  netAmountWithoutPensionFund: number;
+}
+export interface TaxGroupsEntity {
+  name: string;
+  taxRate: number;
+  netAmount: number;
+  taxAmount: number;
+  rounding: number;
+  baseCurrencyNetAmount: number;
+  baseCurrencyTaxAmount: number;
+}
+export interface IncomeTaxDeductionGroupsEntity {
+  name: string;
+  taxRate: number;
+  netAmount: number;
+  taxAmount: number;
+  baseCurrencyNetAmount: number;
+  baseCurrencyTaxAmount: number;
+}
+export interface AttachmentsEntity {
+  file: File;
+  fileId: string;
+}
+export interface File {
+  id: string;
+  url: string;
+  fileName: string;
+  lastModified: string;
+  type: string;
+  sizeBytes: number;
+  thumbnailsUrl: string;
+}
+export interface SendDetailsEntity {
+  id: string;
+  time: string;
+  to: string;
+  viewed?: string[] | null;
+}
+export interface History {
+  booked: string;
+}
+
+export interface BookedInvoiceResponse {
+  id: string;
+  reference: string;
+  companyProfile: CompanyProfile;
+  links?: LinksEntity[] | null;
+  deletedByInvoiceId: string;
+  number: string;
+  sortNumber: string;
+  type: string;
+  notes: string;
+  additionalNotes: string;
+  date: string;
+  dueDate: string;
+  paymentTermsId: number;
+  payments?: PaymentsEntity[] | null;
+  customPaymentTermsDays: number;
+  customerId: string;
+  customerEmail: string;
+  customerName: string;
+  customerNumber: number;
+  customerAddress: string;
+  customerCountry: string;
+  customerCountryName: string;
+  customerCiNumber: string;
+  customerVatNumber: string;
+  priceDisplayType: string;
+  sent: boolean;
+  sendDetails?: SendDetailsEntity[] | null;
+  history: History;
+  paid: boolean;
+  viewed: boolean;
+  archived: boolean;
+  compensated: boolean;
+  archivedDate: string;
+  booked: boolean;
+  deleted: boolean;
+  status: string;
+  creditedInvoiceId: string;
+  invoicedQuoteId: string;
+  invoicedDeliveryNoteId: string;
+  lines?: LinesEntity[] | null;
+  discountRate: number;
+  totalNetAmountBeforeDiscount: number;
+  totalNetLineDiscountAmount: number;
+  totalNetDiscountAmount: number;
+  totalNetAmount: number;
+  totalTaxAmount: number;
+  taxGroups?: TaxGroupsEntity[] | null;
+  incomeTaxDeductionGroups?: IncomeTaxDeductionGroupsEntity[] | null;
+  unpaidAmount: number;
+  totalGrossAmount: number;
+  languageCode: string;
+  currency: string;
+  currencyRate: number;
+  baseCurrency: string;
+  baseCurrencyTotalNetAmount: number;
+  baseCurrencyTotalTaxAmount: number;
+  baseCurrencyTotalGrossAmount: number;
+  baseCurrencyUnpaidAmount: number;
+  displayAsPaid: boolean;
+  onlinePaymentProvider: string;
+  paymentReceipts?: PaymentReceiptsEntityOrData[] | null;
+  attachments?: AttachmentsEntity[] | null;
+  recurringId: string;
+  deleteReason: string;
+  timeline?: TimelineEntity[] | null;
+  vatDueMode: string;
+  treatAsIntraEU: boolean;
+  createdDate: string;
+  lastModifiedDate: string;
+  deletedDate: string;
+}
+export interface CompanyProfile {
+  name: string;
+  companyType: string;
+  businessType: string;
+  firstName: string;
+  lastName: string;
+  industry: string;
+  address: string;
+  detailedAddress: DetailedAddress;
+  country: string;
+  countryCode: string;
+  email: string;
+  telephoneNumber: string;
+  webSite: string;
+  companyNumber: string;
+  taxEnabled: boolean;
+  cashAccounting: boolean;
+  euVatNumber: string;
+  vatNumber: string;
+  responsiblePosition: string;
+  responsibleName: string;
+  taxStatus: string;
+  commercialRegister: string;
+  districtCourt: string;
+  bankName: string;
+  bankNumber: string;
+  bankAccount: string;
+  bankAccount2: string;
+  accountHolderName: string;
+  bicCode: string;
+  swiftCode: string;
+  ibanCode: string;
+  incomeTaxDeduction: number;
+  applyDeduction: boolean;
+  logoUrl: string;
+  bankgirotNumber: string;
+  plusgirotNumber: string;
+  pensionFundType: string;
+  pensionFundRate: number;
+}
+export interface DetailedAddress {
+  street: string;
+  street2: string;
+  number: string;
+  zipCode: string;
+  city: string;
+  province: string;
+  provinceName: string;
+  provinceId: number;
+  parentProvince: string;
+  parentProvinceName: string;
+  parentProvinceId: number;
+  country: string;
+  countryCode: string;
+  additionalInfo: string;
+}
+export interface LinksEntity {
+  linkId: string;
+  type: string;
+  number: string;
+  createdDate: string;
+  date: string;
+  amount: number;
+  currency: string;
+  unpaidAmountChange: number;
+}
+export interface PaymentsEntity {
+  id: string;
+  expenseId: string;
+  invoiceId: string;
+  creditNoteId: string;
+  incomeId: string;
+  paymentTransactionId: string;
+  paymentAccountId: string;
+  matchedPaymentAccountId: string;
+  matchedPaymentTransactionId: string;
+  integrationType: string;
+  paymentType: string;
+  createdDate: string;
+  amount: number;
+  invoiceNumber: string;
+  creditNoteNumber: string;
+  categoryIds?: string[] | null;
+  paymentDate: string;
+  text: string;
+  currency: string;
+  customerName: string;
+  supplierName: string;
+  description: string;
+}
+export interface SendDetailsEntity {
+  id: string;
+  time: string;
+  to: string;
+  viewed?: string[] | null;
+}
+export interface History {
+  booked: string;
+}
+export interface LinesEntity {
+  description: string;
+  quantity: number;
+  unitNetPrice: number;
+  unitGrossPrice: number;
+  unitId: number;
+  unitName: string;
+  lineDiscountRate: number;
+  productId: string;
+  productSku: string;
+  productName: string;
+  taxEnabled: boolean;
+  taxRate: number;
+  productOrService: string;
+  netAmountBeforeDiscount: number;
+  grossAmountBeforeDiscount: number;
+  netAmount: number;
+  grossAmount: number;
+  taxAmount: number;
+  baseCurrencyUnitNetPrice: number;
+  baseCurrencyUnitGrossPrice: number;
+  baseCurrencyNetAmount: number;
+  baseCurrencyGrossAmount: number;
+  baseCurrencyTaxAmount: number;
+  netAmountWithoutPensionFund: number;
+}
+export interface TaxGroupsEntity {
+  name: string;
+  taxRate: number;
+  netAmount: number;
+  taxAmount: number;
+  rounding: number;
+  baseCurrencyNetAmount: number;
+  baseCurrencyTaxAmount: number;
+}
+export interface IncomeTaxDeductionGroupsEntity {
+  name: string;
+  taxRate: number;
+  netAmount: number;
+  taxAmount: number;
+  baseCurrencyNetAmount: number;
+  baseCurrencyTaxAmount: number;
+}
+export interface PaymentReceiptsEntityOrData {}
+export interface AttachmentsEntity {
+  file: File;
+  fileId: string;
+}
+export interface File {
+  id: string;
+  url: string;
+  fileName: string;
+  lastModified: string;
+  type: string;
+  sizeBytes: number;
+  thumbnailsUrl: string;
+}
+export interface TimelineEntity {
+  type: string;
+  createdDate: string;
+  date: string;
+  data: PaymentReceiptsEntityOrData;
+  owner: string;
+  applicationId: string;
 }
