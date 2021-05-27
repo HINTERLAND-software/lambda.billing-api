@@ -261,7 +261,7 @@ const getRowsByDate = (
     }, {} as { [date: string]: TimeEntry[] });
 
     const lines: Line[] = Object.entries(reducedTimeEntries)
-      .sort(([a], [b]) => sortByDate(a, b))
+      .sort(([,a], [,b]) => sortByDate(a, b))
       .map(([date, descriptions]) => {
         const totalDuration = descriptions.reduce(
           (acc, { duration }) => acc + duration,
