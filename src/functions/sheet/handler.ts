@@ -23,7 +23,7 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
   event
 ) => {
   try {
-    const { time, ...config } = getConfig(event.body);
+    const { time, ...config } = getConfig(event.body, (event as any).usePreviousMonth);
     const { dryRun, labels, customerWhitelist } = config;
 
     const timeEntries = await fetchTimeEntriesBetween(

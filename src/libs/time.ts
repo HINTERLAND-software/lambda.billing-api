@@ -24,6 +24,9 @@ export const getRoundedHours = (seconds: number = 0) => {
   return round(getHours(seconds), 0.25);
 };
 
+export const getLastMonth = (): number =>
+  parseInt(moment().subtract(1, 'months').format('M'));
+
 export const formatDateForInvoice = (date: string, locale: Locale = 'de') =>
   moment(date).format(formats[locale || 'de'] || formats.de);
 

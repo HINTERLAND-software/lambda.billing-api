@@ -16,11 +16,20 @@ export DEBITOOR_API_TOKEN="<debitoor_api_token>"
 {
   // Should invoices be created
   "dryRun": true,
+  "setBilled": false,
   // Optional - run for a specific range
   "range": {
     "month": 8,
     "year": 2020
-  }
+  },
+  // Optional - run only for specific customers
+  "customerWhitelist": [
+      "ACME"
+  ],
+  // Optional - run only for entries with specific labels
+  "labels": [
+    "billable"
+  ]
 }
 ```
 

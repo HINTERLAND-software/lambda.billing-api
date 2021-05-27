@@ -1,5 +1,5 @@
 import nodeFetch, { RequestInit } from 'node-fetch';
-import { Time } from './time';
+import { getLastMonth, Time } from './time';
 import type { FromSchema } from 'json-schema-to-ts';
 import schema from 'src/functions/schema';
 import translations, { Locale } from '../translations';
@@ -107,9 +107,11 @@ export type Config = {
 };
 
 export const getConfig = <T extends EventBody>(
-  event?: T
+  event?: T,
+  usePreviousMonth?: boolean
 ): Omit<EventBody, 'dryRun' | 'range'> & Config => {
-  const time = new Time(event?.range?.month, event?.range?.year);
+  const month = event?.range?.month ?? usePreviousMonth ? getLastMonth() : undefined;
+  const time = new Time(month, event?.range?.year);
   const isProduction = getEnvironment() === 'production';
   return {
     ...(event || {}),
