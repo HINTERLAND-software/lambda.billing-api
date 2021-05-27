@@ -1,4 +1,4 @@
-import { Cache, initFetch } from './utils';
+import { Cache, initFetch, Logger } from './utils';
 import * as qs from 'querystring';
 import { LABEL_BILLED } from './constants';
 import {
@@ -11,6 +11,7 @@ import {
 } from './toggl-types';
 import moment from 'moment';
 import { sortByDate } from './time';
+import { Customer } from './debitoor-types';
 
 const BASE_URL = 'https://api.track.toggl.com/api/v8';
 const TIME_ENTRIES_PATH = 'time_entries';
@@ -44,6 +45,39 @@ export const fetchTimeEntriesBetween = async (
   return result;
 };
 
+export const filterTimeEntries = (
+  timeEntries: TimeEntry[],
+  labels?: string[]
+): TimeEntry[] => {
+  return timeEntries
+    .filter(({ description, pid }) => {
+      if (!pid || !description) {
+        Logger.error(
+          `Project of time entry "${description} <${pid}>" not found`
+        );
+      }
+      return description && pid;
+    })
+    .filter(
+      ({ tags }) =>
+        (!labels?.length || tags?.some((tag) => labels.includes(tag))) &&
+        !tags?.includes(LABEL_BILLED)
+    );
+};
+
+export const sanitizeTimeEntries = (timeEntries: TimeEntry[]): TimeEntry[] =>
+  timeEntries.reduce(
+    (acc, entry) => [
+      ...acc,
+      ...entry.description.split(',').map((d, i) => ({
+        ...entry,
+        description: d.trim(),
+        duration: i === 0 ? entry.duration : 0,
+      })),
+    ],
+    []
+  );
+
 export const fetchProject = async (projectId: string): Promise<Project> => {
   const cachedProject = projectCache.get()?.[projectId];
   if (cachedProject) return cachedProject;
@@ -68,6 +102,7 @@ export const bulkAddBilledTag = async (
   timeEntries: TimeEntry[]
 ): Promise<{ data: TimeEntry[] }> => {
   const timeEntryIds = timeEntries.map(({ id }) => id).join(',');
+  if (!timeEntryIds) return { data: [] };
   return fetch(`${BASE_URL}/${TIME_ENTRIES_PATH}/${timeEntryIds}`, {
     method: 'PUT',
     body: JSON.stringify({
@@ -80,7 +115,8 @@ export const bulkAddBilledTag = async (
 };
 
 export const groupByClients = async (
-  billableTimeEntries: TimeEntry[]
+  billableTimeEntries: TimeEntry[],
+  customerWhitelist?: string[]
 ): Promise<GroupedTimeEntries[]> => {
   const clients: Grouped = {};
   for (let i = 0; i < billableTimeEntries.length; i++) {
@@ -98,15 +134,23 @@ export const groupByClients = async (
       timeEntriesGroupedByProject: {
         [pid]: {
           project,
-          totalSecondsSpent: totalSecondsSpent + duration,
+          totalSecondsSpent: timeEntries.every(
+            ({ id: existingId }) => existingId !== id
+          )
+            ? totalSecondsSpent + duration
+            : totalSecondsSpent,
           timeEntries: [...timeEntries, { duration, id, ...rest } as TimeEntry],
         },
       },
     };
   }
 
-  return Object.values(clients).map(
-    ({ client, timeEntriesGroupedByProject }) => {
+  return Object.values(clients)
+    .filter(
+      ({ client }) =>
+        !customerWhitelist?.length || customerWhitelist.includes(client.name)
+    )
+    .map(({ client, timeEntriesGroupedByProject }) => {
       return {
         client,
         projects: Object.values(timeEntriesGroupedByProject).map((project) => ({
@@ -114,8 +158,7 @@ export const groupByClients = async (
           timeEntries: project.timeEntries.sort(sortByDate),
         })),
       };
-    }
-  );
+    });
 };
 
 export const enrichWithTimeEntriesByDay = (
@@ -130,7 +173,7 @@ export const enrichWithTimeEntriesByDay = (
           const startDate = moment(entry.start);
           const endDate = moment(entry.stop);
           if (startDate.day === endDate.day) {
-            const key = startDate.format('ddd DD.MM.YYYY');
+            const key = startDate.format('ddd YYYY/MM/DD');
             const previous = acc[key] || ({} as Day);
             const {
               totalSecondsSpent = 0,
@@ -148,7 +191,7 @@ export const enrichWithTimeEntriesByDay = (
               },
             };
           }
-          throw new Error('Start day and end day are not the same');
+          throw new Error('Start date and end date are not the same');
         }, {} as { [date: string]: Day })
       ).sort(sortByDate),
     })),

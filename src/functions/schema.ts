@@ -1,21 +1,30 @@
 export default {
   type: 'object',
+  additionalProperties: false,
   properties: {
     dryRun: {
       type: 'boolean',
       default: false,
     },
-    label: {
-      type: 'string',
-      default: 'billable',
+    setBilled: {
+      type: 'boolean',
+      default: false,
     },
-    type: {
-      enum: ['debitoor', 'sheet'],
-      default: 'debitoor',
+    labels: {
+      type: 'array',
+      items: {
+        type: 'string',
+      },
+    },
+    customerWhitelist: {
+      type: 'array',
+      items: {
+        type: 'string',
+      },
     },
     range: {
+      additionalProperties: false,
       type: 'object',
-      default: {},
       properties: {
         month: {
           type: 'integer',

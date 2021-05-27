@@ -1,4 +1,10 @@
 import moment from 'moment';
+import { Locale } from 'src/translations';
+
+export const formats = {
+  de: 'DD.MM.YYYY',
+  en: 'YYYY/MM/DD',
+};
 
 export const getTimeSpent = (seconds: number): string =>
   moment('2015-01-01').startOf('day').seconds(seconds).format('H:mm:ss');
@@ -18,11 +24,14 @@ export const getRoundedHours = (seconds: number = 0) => {
   return round(getHours(seconds), 0.25);
 };
 
-export const formatDateForInvoice = (date: string) =>
-  moment(date).format('DD.MM.YYYY');
+export const getLastMonth = (): number =>
+  parseInt(moment().subtract(1, 'months').format('M'));
+
+export const formatDateForInvoice = (date: string, locale: Locale = 'de') =>
+  moment(date).format(formats[locale || 'de'] || formats.de);
 
 export const sortByDate = <T>(a: T, b: T) =>
-  moment(a['stop']).isBefore(moment(b['stop'])) ? -1 : 1;
+  moment(a['stop'] ?? a).isBefore(moment(b['stop'] ?? b)) ? -1 : 1;
 
 export class Time {
   private _moment: moment.Moment = moment();
