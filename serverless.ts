@@ -1,6 +1,6 @@
 import type { AWS } from '@serverless/typescript';
-
 import * as functions from './src/functions';
+
 
 const serverlessConfiguration: AWS = {
   service: '${file(./package.json):name}',
@@ -28,6 +28,7 @@ const serverlessConfiguration: AWS = {
       },
     },
     environment: {
+      TZ: 'Europe/Berlin',
       // Service wide environment variables
       AWS_NODEJS_CONNECTION_REUSE_ENABLED: '1',
       STAGE: '${self:provider.stage}',
