@@ -1,17 +1,16 @@
-import { Cache, initFetch, Logger } from './utils';
+import moment from 'moment';
 import * as qs from 'querystring';
 import { LABEL_BILLED } from './constants';
+import { sortByDate } from './time';
 import {
-  TimeEntry,
-  Project,
   Client,
+  Day,
   Grouped,
   GroupedTimeEntries,
-  Day,
+  Project,
+  TimeEntry
 } from './toggl-types';
-import moment from 'moment';
-import { sortByDate } from './time';
-import { Customer } from './debitoor-types';
+import { Cache, initFetch, Logger } from './utils';
 
 const BASE_URL = 'https://api.track.toggl.com/api/v8';
 const TIME_ENTRIES_PATH = 'time_entries';
@@ -47,7 +46,8 @@ export const fetchTimeEntriesBetween = async (
 
 export const filterTimeEntries = (
   timeEntries: TimeEntry[],
-  labels?: string[]
+  labelWhitelist: string[] = [],
+  labelBlacklist: string[] = []
 ): TimeEntry[] => {
   return timeEntries
     .filter(({ description, pid }) => {
@@ -59,9 +59,10 @@ export const filterTimeEntries = (
       return description && pid;
     })
     .filter(
-      ({ tags }) =>
-        (!labels?.length || tags?.some((tag) => labels.includes(tag))) &&
-        !tags?.includes(LABEL_BILLED)
+      ({ tags = [] }) =>
+        (!labelWhitelist?.length ||
+          tags?.some((tag) => labelWhitelist.includes(tag))) &&
+        (!tags?.length || tags?.every((tag) => !labelBlacklist?.includes(tag)))
     );
 };
 
@@ -116,7 +117,8 @@ export const bulkAddBilledTag = async (
 
 export const groupByClients = async (
   billableTimeEntries: TimeEntry[],
-  customerWhitelist?: string[]
+  customerWhitelist: string[] = [],
+  customerBlacklist: string[] = []
 ): Promise<GroupedTimeEntries[]> => {
   const clients: Grouped = {};
   for (let i = 0; i < billableTimeEntries.length; i++) {
@@ -125,13 +127,16 @@ export const groupByClients = async (
     const client = await fetchClient(project.cid);
 
     const previous = clients[client.id];
+    const previousTimeEntriesGroupedByProject =
+      previous?.timeEntriesGroupedByProject || {};
     const { totalSecondsSpent = 0, timeEntries = [] } =
-      previous?.timeEntriesGroupedByProject?.[pid] || {};
+      previousTimeEntriesGroupedByProject[pid] || {};
 
     clients[client.id] = {
       ...(previous || {}),
       client,
       timeEntriesGroupedByProject: {
+        ...previousTimeEntriesGroupedByProject,
         [pid]: {
           project,
           totalSecondsSpent: timeEntries.every(
@@ -148,7 +153,10 @@ export const groupByClients = async (
   return Object.values(clients)
     .filter(
       ({ client }) =>
-        !customerWhitelist?.length || customerWhitelist.includes(client.name)
+        (!customerWhitelist?.length ||
+          customerWhitelist.includes(client.name)) &&
+        (!customerBlacklist?.length ||
+          !customerBlacklist?.includes(client.name))
     )
     .map(({ client, timeEntriesGroupedByProject }) => {
       return {

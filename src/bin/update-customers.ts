@@ -1,5 +1,5 @@
-import { upsertCustomer } from '../libs/debitoor';
 import env from '../../.env.json';
+import { upsertCustomer } from '../libs/debitoor';
 
 const run = async () => {
   for (let i = 0; i < env.customers.length; i++) {

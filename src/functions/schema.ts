@@ -10,13 +10,25 @@ export default {
       type: 'boolean',
       default: false,
     },
-    labels: {
+    labelWhitelist: {
+      type: 'array',
+      items: {
+        type: 'string',
+      },
+    },
+    labelBlacklist: {
       type: 'array',
       items: {
         type: 'string',
       },
     },
     customerWhitelist: {
+      type: 'array',
+      items: {
+        type: 'string',
+      },
+    },
+    customerBlacklist: {
       type: 'array',
       items: {
         type: 'string',

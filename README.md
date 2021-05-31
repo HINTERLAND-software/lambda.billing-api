@@ -26,9 +26,17 @@ export DEBITOOR_API_TOKEN="<debitoor_api_token>"
   "customerWhitelist": [
       "ACME"
   ],
+  // Optional - skip for specific customers
+  "customerBlacklist": [
+      "EMCA"
+  ],
   // Optional - run only for entries with specific labels
-  "labels": [
+  "labelWhitelist": [
     "billable"
+  ],
+  // Optional - skip for entries with specific labels
+  "labelBlacklist": [
+    "billed"
   ]
 }
 ```
