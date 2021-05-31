@@ -1,24 +1,25 @@
-import { Cache, Config, download, initFetch, Logger, translate } from './utils';
+import FormData from 'form-data';
 import * as qs from 'querystring';
+import { Locale } from 'src/translations';
+import { LIST_BY_DATES } from './constants';
 import {
-  CustomerMeta,
-  Line,
+  BookedInvoiceResponse,
+  Company,
   Customer,
-  Product,
+  CustomerData,
+  CustomerDataMapping,
+  CustomerMeta,
   DraftInvoiceRequest,
   DraftInvoiceResponse,
-  Settings,
   GlobalMeta,
-  Company,
+  Line,
   LogoResponse,
-  CustomerData,
-  BookedInvoiceResponse,
+  Product,
+  Settings
 } from './debitoor-types';
-import { GroupedTimeEntries, TimeEntry } from './toggl-types';
-import { getRoundedHours, formatDateForInvoice, sortByDate } from './time';
-import { LIST_BY_DATES } from './constants';
-import { Locale } from 'src/translations';
-import FormData from 'form-data';
+import { formatDateForInvoice, getRoundedHours, sortByDate } from './time';
+import { ClientTimeEntries, TimeEntry } from './toggl-types';
+import { Cache, Config, download, initFetch, Logger, translate } from './utils';
 
 const BASE_URL = 'https://api.debitoor.com/api';
 const CUSTOMERS_PATH = 'customers';
@@ -225,6 +226,17 @@ export const fetchCustomerData = async (
   return { product, customer, meta };
 };
 
+export const fetchAllCustomerData = async (
+  customerTimeEntries: ClientTimeEntries[]
+): Promise<CustomerDataMapping> =>
+  customerTimeEntries.reduce(
+    async (acc, { customer }) => ({
+      ...(await acc),
+      [customer.name]: await fetchCustomerData(customer.name),
+    }),
+    {} as Promise<CustomerDataMapping>
+  );
+
 const getDescriptionRowsByEntry = (
   timeEntries: TimeEntry[] = [],
   locale: Locale
@@ -246,49 +258,6 @@ const getDescriptionRowsByEntry = (
     });
 };
 
-const getRowsByDate = (
-  { meta, product }: CustomerData,
-  projects: GroupedTimeEntries['projects'] = []
-): Line[] => {
-  return projects.reduce((acc, { timeEntries, project }) => {
-    const reducedTimeEntries = timeEntries.reduce((accEntries, entry) => {
-      const { stop } = entry;
-      const date = formatDateForInvoice(stop, meta.lang);
-      return {
-        ...accEntries,
-        [date]: [...(accEntries[date] || []), entry].sort(),
-      };
-    }, {} as { [date: string]: TimeEntry[] });
-
-    const lines: Line[] = Object.entries(reducedTimeEntries)
-      .sort(([,a], [,b]) => sortByDate(a, b))
-      .map(([date, descriptions]) => {
-        const totalDuration = descriptions.reduce(
-          (acc, { duration }) => acc + duration,
-          0
-        );
-        const roundedHours = getRoundedHours(totalDuration);
-        const joinedDescriptions = [
-          ...new Set(descriptions.map(({ description }) => description).sort()),
-        ]
-          .map((d) => `     - ${d}`)
-          .join('\n');
-
-        return {
-          productId: product.id,
-          taxEnabled: product.taxEnabled,
-          taxRate: product.rate,
-          unitId: product.unitId,
-          unitNetPrice: product.netUnitSalesPrice,
-          productName: `${project.name} | ${date}`,
-          quantity: roundedHours || 0,
-          description: joinedDescriptions,
-        };
-      });
-    return [...acc, ...lines];
-  }, []);
-};
-
 const languageCodes = {
   de: 'de-DE',
   en: 'en-DE',
@@ -296,28 +265,49 @@ const languageCodes = {
 
 export const generateInvoiceTemplate = (
   customerData: CustomerData,
-  projects: GroupedTimeEntries['projects'],
+  customerTimeEntries: ClientTimeEntries,
   config: Config
 ): DraftInvoiceRequest => {
   const { product, customer, meta } = customerData;
   const { time } = config;
 
   const lines: Line[] = meta.flags?.includes(LIST_BY_DATES)
-    ? getRowsByDate(customerData, projects)
-    : projects.map(({ project, totalSecondsSpent, timeEntries }) => {
-        return {
+    ? customerTimeEntries.days.map(
+        ({ start, timeEntries, totalSecondsSpent }) => ({
           productId: product.id,
           taxEnabled: product.taxEnabled,
           taxRate: product.rate,
           unitId: product.unitId,
           unitNetPrice: product.netUnitSalesPrice,
-          productName: project.name,
+          productName: `${formatDateForInvoice(start, meta.lang)} | ${[
+            ...new Set(timeEntries.map(({ project }) => project.name)),
+          ].join('/')}`,
           quantity: getRoundedHours(totalSecondsSpent) || 0,
-          description: getDescriptionRowsByEntry(timeEntries, meta.lang).join(
-            '\n'
-          ),
-        };
-      });
+          description: [
+            ...new Set(
+              timeEntries.map(({ description }) => description).sort()
+            ),
+          ]
+            .map((d) => `     - ${d}`)
+            .join('\n'),
+        })
+      )
+    : customerTimeEntries.projects.map(
+        ({ project, totalSecondsSpent, timeEntries }) => {
+          return {
+            productId: product.id,
+            taxEnabled: product.taxEnabled,
+            taxRate: product.rate,
+            unitId: product.unitId,
+            unitNetPrice: product.netUnitSalesPrice,
+            productName: project.name,
+            quantity: getRoundedHours(totalSecondsSpent) || 0,
+            description: getDescriptionRowsByEntry(timeEntries, meta.lang).join(
+              '\n'
+            ),
+          };
+        }
+      );
 
   const notes = translate(meta.lang, 'PERFORMANCE_PERIOD', {
     from: formatDateForInvoice(time.startOfMonthFormatted, meta.lang),
@@ -346,35 +336,39 @@ export const generateInvoiceTemplate = (
 export type CreateDraftInvoicesResponse = {
   response?: DraftInvoiceResponse;
   customerData?: CustomerData;
-  groupedTimeEntries: GroupedTimeEntries;
+  customerTimeEntries: ClientTimeEntries;
   error?: Error;
 };
 
 export const createDraftInvoices = (
-  grouped: GroupedTimeEntries[],
-  config: Config
+  customerTimeEntries: ClientTimeEntries[],
+  config: Config,
+  customerDataMapping: CustomerDataMapping
 ): Promise<CreateDraftInvoicesResponse[]> => {
   return Promise.all(
-    grouped.map(async (groupedTimeEntries) => {
+    customerTimeEntries.map(async (customerTimeEntries) => {
       try {
-        const customerData = await fetchCustomerData(
-          groupedTimeEntries.client.name
-        );
+        const customerData =
+          customerDataMapping[customerTimeEntries.customer.name];
+        if (!customerData)
+          throw new Error(
+            `No customer found for ${customerTimeEntries.customer.name}`
+          );
         const request = generateInvoiceTemplate(
           customerData,
-          groupedTimeEntries.projects,
+          customerTimeEntries,
           config
         );
         const response = await createDraftInvoice(request);
         return {
           response,
-          groupedTimeEntries,
+          customerTimeEntries,
           customerData,
         };
       } catch (error) {
         Logger.warn(error);
         return {
-          groupedTimeEntries,
+          customerTimeEntries,
           error,
         };
       }

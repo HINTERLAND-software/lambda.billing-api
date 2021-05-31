@@ -1,5 +1,7 @@
 import moment from 'moment';
-import { GroupedTimeEntries } from './toggl-types';
+import { CustomerDataMapping } from './debitoor-types';
+import { formatDateForInvoice } from './time';
+import { ClientTimeEntries } from './toggl-types';
 
 const wrap = (str: unknown) => `"${str}"`;
 
@@ -15,7 +17,10 @@ const formatSeconds = (seconds: number) => {
   ].join(':');
 };
 
-export const createCsv = (clients: GroupedTimeEntries[]) => {
+export const createCsv = (
+  customerTimeEntries: ClientTimeEntries[],
+  customerDataMapping: CustomerDataMapping
+) => {
   const header = [
     'Date',
     'Start',
@@ -26,16 +31,17 @@ export const createCsv = (clients: GroupedTimeEntries[]) => {
     'Total',
     'Active',
   ];
-  return clients.map((client) => ({
-    name: client.client.name,
-    projects: client.projects.map((project) => ({
-      name: project.project.name,
+  return customerTimeEntries.map(({ customer, days }) => {
+    const customerData = customerDataMapping[customer.name];
+    if (!customerData)
+      throw new Error(`No customer found for ${customer.name}`);
+    return {
+      name: customer.name,
       csv: [
         header.map(wrap).join(';'),
-        ...project.timeEntriesPerDay
-          ?.map(
+        ...days
+          .map(
             ({
-              date,
               timeEntries,
               start,
               stop,
@@ -55,7 +61,7 @@ export const createCsv = (clients: GroupedTimeEntries[]) => {
               const pauseSeconds = totalSeconds - activeSeconds;
 
               const result = {
-                date,
+                date: formatDateForInvoice(start, customerData.meta.lang),
                 start: startDate.format('HH:mm'),
                 end: endDate.format('HH:mm'),
                 pause: formatSeconds(pauseSeconds),
@@ -72,6 +78,6 @@ export const createCsv = (clients: GroupedTimeEntries[]) => {
             header.map((h) => wrap(result[h.toLowerCase()])).join(';')
           ),
       ].join('\n'),
-    })),
-  }));
+    };
+  });
 };

@@ -3,10 +3,11 @@ import * as qs from 'querystring';
 import { LABEL_BILLED } from './constants';
 import { sortByDate } from './time';
 import {
-  Client,
+  ClientTimeEntries,
+  Customer,
   Day,
-  Grouped,
-  GroupedTimeEntries,
+  EnrichedProject,
+  EnrichedTimeEntry,
   Project,
   TimeEntry
 } from './toggl-types';
@@ -17,8 +18,8 @@ const TIME_ENTRIES_PATH = 'time_entries';
 const PROJECT_PATH = 'projects';
 const CLIENT_PATH = 'clients';
 
-const clientCache = new Cache<{ [clientId: number]: Client }>(
-  'toggl.clients',
+const customerCache = new Cache<{ [customerId: number]: Customer }>(
+  'toggl.customers',
   {}
 );
 const projectCache = new Cache<{ [projectId: string]: Project }>(
@@ -44,7 +45,21 @@ export const fetchTimeEntriesBetween = async (
   return result;
 };
 
-export const filterTimeEntries = (
+export const filterClientTimeEntriesByCustomer = (
+  ClientTimeEntries: ClientTimeEntries[],
+  customerWhitelist: string[] = [],
+  customerBlacklist: string[] = []
+): ClientTimeEntries[] => {
+  return ClientTimeEntries.filter(
+    ({ customer }) =>
+      (!customerWhitelist?.length ||
+        customerWhitelist.includes(customer.name)) &&
+      (!customerBlacklist?.length ||
+        !customerBlacklist?.includes(customer.name))
+  );
+};
+
+export const filterTimeEntriesByLabel = (
   timeEntries: TimeEntry[],
   labelWhitelist: string[] = [],
   labelBlacklist: string[] = []
@@ -89,14 +104,14 @@ export const fetchProject = async (projectId: string): Promise<Project> => {
   return project;
 };
 
-export const fetchClient = async (clientId: number): Promise<Client> => {
-  const cachedClient = clientCache.get()?.[clientId];
+export const fetchClient = async (customerId: number): Promise<Customer> => {
+  const cachedClient = customerCache.get()?.[customerId];
   if (cachedClient) return cachedClient;
 
-  const result = await fetch(`${BASE_URL}/${CLIENT_PATH}/${clientId}`);
-  const client = result?.data;
-  clientCache.assign({ [clientId]: client });
-  return client;
+  const result = await fetch(`${BASE_URL}/${CLIENT_PATH}/${customerId}`);
+  const customer = result?.data;
+  customerCache.assign({ [customerId]: customer });
+  return customer;
 };
 
 export const bulkAddBilledTag = async (
@@ -115,93 +130,101 @@ export const bulkAddBilledTag = async (
   });
 };
 
-export const groupByClients = async (
-  billableTimeEntries: TimeEntry[],
-  customerWhitelist: string[] = [],
-  customerBlacklist: string[] = []
-): Promise<GroupedTimeEntries[]> => {
-  const clients: Grouped = {};
+const getTimeEntriesByDay = (timeEntries: EnrichedTimeEntry[]): Day[] => {
+  return Object.values(
+    timeEntries.reduce((acc, entry) => {
+      const startDate = moment(entry.start);
+      const endDate = moment(entry.stop);
+      if (startDate.day() === endDate.day()) {
+        const key = startDate.format('ddd YYYY/MM/DD');
+        const previous = acc[key] || ({} as Day);
+        const {
+          totalSecondsSpent = 0,
+          timeEntries = [],
+          start = entry.start,
+        } = previous;
+        return {
+          ...acc,
+          [key]: {
+            start,
+            stop: entry.stop,
+            totalSecondsSpent: totalSecondsSpent + entry.duration,
+            timeEntries: [...timeEntries, entry],
+          },
+        };
+      }
+      throw new Error('Start date and end date are not the same');
+    }, {} as { [date: string]: Day })
+  ).sort(sortByDate);
+};
+
+interface Grouped {
+  [customerId: string]: {
+    customer: Customer;
+    totalSecondsSpent: number;
+    timeEntries: EnrichedTimeEntry[];
+    timeEntriesGroupedByProject: {
+      [projectId: string]: {
+        project: EnrichedProject;
+        totalSecondsSpent: number;
+        timeEntries: EnrichedTimeEntry[];
+      };
+    };
+  };
+}
+
+export const enrichTimeEntries = async (
+  billableTimeEntries: TimeEntry[]
+): Promise<ClientTimeEntries[]> => {
+  const customers: Grouped = {};
   for (let i = 0; i < billableTimeEntries.length; i++) {
-    const { duration, id, pid, ...rest } = billableTimeEntries[i];
+    const timeEntry = billableTimeEntries[i];
+    const { duration, pid } = timeEntry;
     const project = await fetchProject(pid);
-    const client = await fetchClient(project.cid);
+    const customer = await fetchClient(project.cid);
 
-    const previous = clients[client.id];
+    const previousClient = customers[customer.id];
     const previousTimeEntriesGroupedByProject =
-      previous?.timeEntriesGroupedByProject || {};
-    const { totalSecondsSpent = 0, timeEntries = [] } =
-      previousTimeEntriesGroupedByProject[pid] || {};
+      previousClient?.timeEntriesGroupedByProject || {};
+    const previousTimeEntries = previousClient?.timeEntries || [];
+    const previousTotalSecondsSpent = previousClient?.totalSecondsSpent || 0;
 
-    clients[client.id] = {
-      ...(previous || {}),
-      client,
+    const {
+      totalSecondsSpent: projectTotalSecondsSpent = 0,
+      timeEntries: projectTimeEntries = [],
+    } = previousTimeEntriesGroupedByProject[pid] || {};
+
+    const enrichedProject = { ...project, customer };
+    const enrichedTimeEntry = { ...timeEntry, project: enrichedProject };
+
+    customers[customer.id] = {
+      ...(previousClient || {}),
+      customer,
+      totalSecondsSpent: previousTotalSecondsSpent + duration,
+      timeEntries: [...previousTimeEntries, enrichedTimeEntry].sort(sortByDate),
       timeEntriesGroupedByProject: {
         ...previousTimeEntriesGroupedByProject,
         [pid]: {
-          project,
-          totalSecondsSpent: timeEntries.every(
-            ({ id: existingId }) => existingId !== id
-          )
-            ? totalSecondsSpent + duration
-            : totalSecondsSpent,
-          timeEntries: [...timeEntries, { duration, id, ...rest } as TimeEntry],
+          project: enrichedProject,
+          totalSecondsSpent: projectTotalSecondsSpent + duration,
+          timeEntries: [...projectTimeEntries, enrichedTimeEntry].sort(
+            sortByDate
+          ),
         },
       },
     };
   }
 
-  return Object.values(clients)
-    .filter(
-      ({ client }) =>
-        (!customerWhitelist?.length ||
-          customerWhitelist.includes(client.name)) &&
-        (!customerBlacklist?.length ||
-          !customerBlacklist?.includes(client.name))
-    )
-    .map(({ client, timeEntriesGroupedByProject }) => {
+  return Object.values(customers).map(
+    ({ timeEntriesGroupedByProject, ...rest }) => {
       return {
-        client,
+        ...rest,
         projects: Object.values(timeEntriesGroupedByProject).map((project) => ({
           ...project,
-          timeEntries: project.timeEntries.sort(sortByDate),
+          days: getTimeEntriesByDay(project.timeEntries),
         })),
+        days: getTimeEntriesByDay(rest.timeEntries),
       };
-    });
-};
-
-export const enrichWithTimeEntriesByDay = (
-  clients: GroupedTimeEntries[]
-): GroupedTimeEntries[] => {
-  return clients.map((client) => ({
-    ...client,
-    projects: client.projects.map((project) => ({
-      ...project,
-      timeEntriesPerDay: Object.values(
-        project.timeEntries.reduce((acc, entry) => {
-          const startDate = moment(entry.start);
-          const endDate = moment(entry.stop);
-          if (startDate.day === endDate.day) {
-            const key = startDate.format('ddd YYYY/MM/DD');
-            const previous = acc[key] || ({} as Day);
-            const {
-              totalSecondsSpent = 0,
-              timeEntries = [],
-              start = startDate.toISOString(),
-            } = previous;
-            return {
-              ...acc,
-              [key]: {
-                date: key,
-                start,
-                stop: endDate.toISOString(),
-                totalSecondsSpent: totalSecondsSpent + entry.duration,
-                timeEntries: [...timeEntries, entry],
-              },
-            };
-          }
-          throw new Error('Start date and end date are not the same');
-        }, {} as { [date: string]: Day })
-      ).sort(sortByDate),
-    })),
-  }));
+    }
+  );
 };

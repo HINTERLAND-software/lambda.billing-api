@@ -1,34 +1,28 @@
-export interface Grouped {
-  [customerId: string]: {
-    client: Client;
-    timeEntriesGroupedByProject: {
-      [projectId: string]: {
-        project: Project;
-        totalSecondsSpent: number;
-        timeEntries: TimeEntry[];
-      };
-    };
-  };
-}
 
 export interface Day {
-  date: string;
   start: string;
   stop: string;
   totalSecondsSpent: number;
-  timeEntries: TimeEntry[];
+  timeEntries: EnrichedTimeEntry[];
 }
 
-export interface GroupedTimeEntries {
-  client: Client;
-  projects: {
-    project: Project;
-    totalSecondsSpent: number;
-    timeEntries: TimeEntry[];
-    timeEntriesPerDay?: Day[];
-  }[];
+export interface ProjectTimeEntries {
+  project: EnrichedProject;
+  totalSecondsSpent: number;
+  timeEntries: EnrichedTimeEntry[];
+  days: Day[];
+}
+export interface ClientTimeEntries {
+  customer: Customer;
+  totalSecondsSpent: number;
+  timeEntries: EnrichedTimeEntry[];
+  days: Day[];
+  projects: ProjectTimeEntries[];
 }
 
+export interface EnrichedTimeEntry extends TimeEntry {
+  project: EnrichedProject;
+}
 export interface TimeEntry {
   id: number;
   guid: string;
@@ -45,6 +39,10 @@ export interface TimeEntry {
   uid: number;
 }
 
+export interface EnrichedProject extends Project {
+  customer: Customer;
+}
+
 export interface Project {
   id: number;
   wid: number;
@@ -58,7 +56,7 @@ export interface Project {
   color: string;
 }
 
-export interface Client {
+export interface Customer {
   id: number;
   wid: number;
   name: string;

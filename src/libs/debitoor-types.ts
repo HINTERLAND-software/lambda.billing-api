@@ -1,5 +1,5 @@
 import { Locale } from 'src/translations';
-import { COMPANY, LANG, FLAGS, SKU } from './constants';
+import { COMPANY, FLAGS, LANG, SKU } from './constants';
 
 export type CompanyId = 'jr' | 'default';
 export interface CustomerMeta {
@@ -8,6 +8,8 @@ export interface CustomerMeta {
   [COMPANY]?: CompanyId;
   [FLAGS]?: string[];
 }
+
+export type CustomerDataMapping = Record<string, CustomerData>;
 
 export interface CustomerData {
   product: Product;
