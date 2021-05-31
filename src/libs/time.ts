@@ -37,28 +37,12 @@ export class Time {
   private _moment: moment.Moment = moment();
   private _format: string = 'YYYY-MM-DD';
   constructor(month?: number, year?: number) {
-    if (month) {
-      this._moment.set('month', month - 1);
+    if (month !== undefined) {
+      this._moment.month(month - 1);
     }
-    if (year) {
-      this._moment.set('year', year);
+    if (year !== undefined) {
+      this._moment.year(year);
     }
-  }
-
-  public isBetweenStartAndEndOfMonth(date: string): boolean {
-    const groupingDate = moment(date).valueOf();
-    return (
-      this.startOfMonthEpoch <= groupingDate &&
-      this.endOfMonthEpoch >= groupingDate
-    );
-  }
-
-  set month(month: number) {
-    month && this._moment.month(month);
-  }
-
-  set year(year: number) {
-    year && this._moment.year(year);
   }
 
   get startOfMonth(): moment.Moment {

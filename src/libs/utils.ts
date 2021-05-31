@@ -1,8 +1,8 @@
-import nodeFetch, { RequestInit } from 'node-fetch';
-import { getLastMonth, Time } from './time';
 import type { FromSchema } from 'json-schema-to-ts';
+import nodeFetch, { RequestInit } from 'node-fetch';
 import schema from 'src/functions/schema';
 import translations, { Locale } from '../translations';
+import { getLastMonth, Time } from './time';
 
 export const getEnvironment = (): string => {
   const { STAGE, NODE_ENV = 'development' } = process.env;
@@ -107,20 +107,23 @@ export type Config = {
 };
 
 export const getConfig = <T extends EventBody>(
-  event?: T,
+  body?: T,
   usePreviousMonth?: boolean
 ): Omit<EventBody, 'dryRun' | 'range'> & Config => {
-  const month = event?.range?.month ?? usePreviousMonth ? getLastMonth() : undefined;
-  const time = new Time(month, event?.range?.year);
+  const month =
+    body?.range?.month ?? (usePreviousMonth ? getLastMonth() : undefined);
+
+  const time = new Time(month, body?.range?.year);
+
   const isProduction = getEnvironment() === 'production';
   return {
-    ...(event || {}),
+    ...(body || {}),
     range: {
       from: time.startOfMonthFormatted,
       to: time.endOfMonthFormatted,
     },
-    dryRun: event.dryRun ?? !isProduction,
-    setBilled: event.setBilled ?? isProduction,
+    dryRun: body.dryRun ?? !isProduction,
+    setBilled: body.setBilled ?? isProduction,
     time,
   };
 };

@@ -1,31 +1,28 @@
-import 'source-map-support/register';
-
-import { Logger, clearCaches, getConfig } from '@libs/utils';
 import {
-  bulkAddBilledTag,
-  groupByClients,
-  fetchTimeEntriesBetween,
-  filterTimeEntries,
-  sanitizeTimeEntries,
-} from '@libs/toggl';
+  httpResponse,
+  ValidatedEventAPIGatewayProxyEvent
+} from '@libs/apiGateway';
+import { BOOK, LABEL_BILLED, MAIL } from '@libs/constants';
 import {
   bookDraftInvoice,
   bookSendDraftInvoice,
   changeCompany,
   createDraftInvoices,
   CreateDraftInvoicesResponse,
-  fetchGlobalMeta,
+  fetchGlobalMeta
 } from '@libs/debitoor';
-import { middyfy } from '@libs/lambda';
-import { BOOK, MAIL } from '@libs/constants';
-
-import {
-  httpResponse,
-  ValidatedEventAPIGatewayProxyEvent,
-} from '@libs/apiGateway';
-
-import schema from '../schema';
 import { CompanyId } from '@libs/debitoor-types';
+import { middyfy } from '@libs/lambda';
+import {
+  bulkAddBilledTag,
+  fetchTimeEntriesBetween,
+  filterTimeEntries,
+  groupByClients,
+  sanitizeTimeEntries
+} from '@libs/toggl';
+import { clearCaches, getConfig, Logger } from '@libs/utils';
+import 'source-map-support/register';
+import schema from '../schema';
 
 const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
   event
@@ -34,19 +31,31 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
 
   try {
     const config = getConfig(event.body, (event as any).usePreviousMonth);
-    const { dryRun, setBilled, labels, customerWhitelist, time } = config;
+    const {
+      dryRun,
+      setBilled,
+      labelWhitelist,
+      labelBlacklist,
+      customerWhitelist,
+      customerBlacklist,
+      time,
+    } = config;
 
     const timeEntries = await fetchTimeEntriesBetween(
       time.startOfMonthISO,
       time.endOfMonthISO
     );
 
-    const billableTimeEntries = filterTimeEntries(timeEntries, labels);
+    const billableTimeEntries = filterTimeEntries(timeEntries, labelWhitelist, [
+      ...labelBlacklist,
+      LABEL_BILLED,
+    ]);
     const sanitizedTimeEntries = sanitizeTimeEntries(billableTimeEntries);
 
     const clients = await groupByClients(
       sanitizedTimeEntries,
-      customerWhitelist
+      customerWhitelist,
+      customerBlacklist
     );
 
     let draftInvoices: CreateDraftInvoicesResponse[] = [];

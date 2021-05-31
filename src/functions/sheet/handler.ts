@@ -1,44 +1,59 @@
-import 'source-map-support/register';
-
-import { Logger, clearCaches, getConfig } from '@libs/utils';
-import {
-  bulkAddBilledTag,
-  groupByClients,
-  fetchTimeEntriesBetween,
-  enrichWithTimeEntriesByDay,
-  filterTimeEntries,
-  sanitizeTimeEntries,
-} from '@libs/toggl';
-import { middyfy } from '@libs/lambda';
-
 import {
   httpResponse,
-  ValidatedEventAPIGatewayProxyEvent,
+  ValidatedEventAPIGatewayProxyEvent
 } from '@libs/apiGateway';
-
-import schema from '../schema';
 import { createCsv } from '@libs/csv';
+import { middyfy } from '@libs/lambda';
+import {
+  bulkAddBilledTag,
+  enrichWithTimeEntriesByDay,
+  fetchTimeEntriesBetween,
+  filterTimeEntries,
+  groupByClients,
+  sanitizeTimeEntries
+} from '@libs/toggl';
+import { clearCaches, getConfig, Logger } from '@libs/utils';
+import 'source-map-support/register';
+import schema from '../schema';
 
 const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
   event
 ) => {
   try {
-    const { time, ...config } = getConfig(event.body, (event as any).usePreviousMonth);
-    const { dryRun, labels, customerWhitelist } = config;
+    const { time, ...config } = getConfig(
+      event.body,
+      (event as any).usePreviousMonth
+    );
+    const {
+      setBilled,
+      dryRun,
+      labelWhitelist,
+      labelBlacklist,
+      customerWhitelist,
+      customerBlacklist,
+    } = config;
 
     const timeEntries = await fetchTimeEntriesBetween(
       time.startOfMonthISO,
       time.endOfMonthISO
     );
 
-    const billableTimeEntries = filterTimeEntries(timeEntries, labels);
+    const billableTimeEntries = filterTimeEntries(
+      timeEntries,
+      labelWhitelist,
+      labelBlacklist
+    );
     const sanitizedTimeEntries = sanitizeTimeEntries(billableTimeEntries);
 
-    let clients = await groupByClients(sanitizedTimeEntries, customerWhitelist);
+    let clients = await groupByClients(
+      sanitizedTimeEntries,
+      customerWhitelist,
+      customerBlacklist
+    );
     clients = enrichWithTimeEntriesByDay(clients);
 
     const csv = createCsv(clients);
-    if (!dryRun) {
+    if (setBilled) {
       await bulkAddBilledTag(sanitizedTimeEntries);
     }
 
@@ -46,15 +61,7 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
       200,
       `Created sheet(s) for ${clients.length} client(s)`,
       {
-        config: {
-          dryRun,
-          range: {
-            from: time.startOfMonthFormatted,
-            to: time.endOfMonthFormatted,
-          },
-          labels,
-          customerWhitelist,
-        },
+        config,
         csv,
         clients: dryRun ? clients : null,
       }
