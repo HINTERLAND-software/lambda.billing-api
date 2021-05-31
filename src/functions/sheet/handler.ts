@@ -3,13 +3,14 @@ import {
   ValidatedEventAPIGatewayProxyEvent
 } from '@libs/apiGateway';
 import { createCsv } from '@libs/csv';
+import { fetchAllCustomerData } from '@libs/debitoor';
 import { middyfy } from '@libs/lambda';
 import {
   bulkAddBilledTag,
-  enrichWithTimeEntriesByDay,
+  enrichTimeEntries,
   fetchTimeEntriesBetween,
-  filterTimeEntries,
-  groupByClients,
+  filterClientTimeEntriesByCustomer,
+  filterTimeEntriesByLabel,
   sanitizeTimeEntries
 } from '@libs/toggl';
 import { clearCaches, getConfig, Logger } from '@libs/utils';
@@ -38,32 +39,33 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
       time.endOfMonthISO
     );
 
-    const billableTimeEntries = filterTimeEntries(
+    const billableTimeEntries = filterTimeEntriesByLabel(
       timeEntries,
       labelWhitelist,
       labelBlacklist
     );
     const sanitizedTimeEntries = sanitizeTimeEntries(billableTimeEntries);
 
-    let clients = await groupByClients(
-      sanitizedTimeEntries,
+    let customerTimeEntries = await enrichTimeEntries(sanitizedTimeEntries);
+    customerTimeEntries = filterClientTimeEntriesByCustomer(
+      customerTimeEntries,
       customerWhitelist,
       customerBlacklist
     );
-    clients = enrichWithTimeEntriesByDay(clients);
 
-    const csv = createCsv(clients);
+    const customerData = await fetchAllCustomerData(customerTimeEntries);
+    const csv = createCsv(customerTimeEntries, customerData);
     if (setBilled) {
       await bulkAddBilledTag(sanitizedTimeEntries);
     }
 
     return httpResponse(
       200,
-      `Created sheet(s) for ${clients.length} client(s)`,
+      `Created sheet(s) for ${customerTimeEntries.length} customer(s)`,
       {
         config,
         csv,
-        clients: dryRun ? clients : null,
+        customerTimeEntries: dryRun ? customerTimeEntries : null,
       }
     );
   } catch (error) {

@@ -9,15 +9,17 @@ import {
   changeCompany,
   createDraftInvoices,
   CreateDraftInvoicesResponse,
+  fetchAllCustomerData,
   fetchGlobalMeta
 } from '@libs/debitoor';
 import { CompanyId } from '@libs/debitoor-types';
 import { middyfy } from '@libs/lambda';
 import {
   bulkAddBilledTag,
+  enrichTimeEntries,
   fetchTimeEntriesBetween,
-  filterTimeEntries,
-  groupByClients,
+  filterClientTimeEntriesByCustomer,
+  filterTimeEntriesByLabel,
   sanitizeTimeEntries
 } from '@libs/toggl';
 import { clearCaches, getConfig, Logger } from '@libs/utils';
@@ -46,14 +48,16 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
       time.endOfMonthISO
     );
 
-    const billableTimeEntries = filterTimeEntries(timeEntries, labelWhitelist, [
-      ...labelBlacklist,
-      LABEL_BILLED,
-    ]);
+    const billableTimeEntries = filterTimeEntriesByLabel(
+      timeEntries,
+      labelWhitelist,
+      [...(labelBlacklist || []), LABEL_BILLED]
+    );
     const sanitizedTimeEntries = sanitizeTimeEntries(billableTimeEntries);
 
-    const clients = await groupByClients(
-      sanitizedTimeEntries,
+    let customerTimeEntries = await enrichTimeEntries(sanitizedTimeEntries);
+    customerTimeEntries = filterClientTimeEntriesByCustomer(
+      customerTimeEntries,
       customerWhitelist,
       customerBlacklist
     );
@@ -62,7 +66,12 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
     const booked = [];
     const erroneous = [];
     if (!dryRun) {
-      draftInvoices = await createDraftInvoices(clients, config);
+      const customerData = await fetchAllCustomerData(customerTimeEntries);
+      draftInvoices = await createDraftInvoices(
+        customerTimeEntries,
+        config,
+        customerData
+      );
 
       const bookableDraftInvoices = draftInvoices.filter(({ customerData }) =>
         customerData.meta.flags?.includes(BOOK)
@@ -109,11 +118,11 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
 
     return httpResponse(
       200,
-      `Created billing task with ${clients.length} subtask(s)`,
+      `Created billing task with ${customerTimeEntries.length} subtask(s)`,
       {
         config,
         debitoor: draftInvoices,
-        clients: dryRun ? clients : null,
+        customerTimeEntries: dryRun ? customerTimeEntries : null,
         booked,
         erroneous,
       }
