@@ -18,8 +18,16 @@ import {
   Settings
 } from './debitoor-types';
 import { formatDateForInvoice, getRoundedHours, sortByDate } from './time';
-import { ClientTimeEntries, TimeEntry } from './toggl-types';
-import { Cache, Config, download, initFetch, Logger, translate } from './utils';
+import { ClientTimeEntries, EnrichedTimeEntry, TimeEntry } from './toggl-types';
+import {
+  Cache,
+  Config,
+  download,
+  initFetch,
+  Logger,
+  translate,
+  uniquify
+} from './utils';
 
 const BASE_URL = 'https://api.debitoor.com/api';
 const CUSTOMERS_PATH = 'customers';
@@ -237,7 +245,7 @@ export const fetchAllCustomerData = async (
     {} as Promise<CustomerDataMapping>
   );
 
-const getDescriptionRowsByEntry = (
+const getDescriptionRowsForProject = (
   timeEntries: TimeEntry[] = [],
   locale: Locale
 ): string[] => {
@@ -251,11 +259,33 @@ const getDescriptionRowsByEntry = (
   return Object.entries(reduced)
     .sort(([, [a]], [, [b]]) => sortByDate(a, b))
     .map(([description, dates]) => {
-      const joinedDates = [
-        ...new Set(dates.map((date) => formatDateForInvoice(date, locale))),
-      ].join(', ');
+      const joinedDates = uniquify(
+        dates.map((date) => formatDateForInvoice(date, locale))
+      ).join(', ');
       return `  - ${description} (${joinedDates})`;
     });
+};
+
+const getDescriptionRowsForDates = (
+  timeEntries: EnrichedTimeEntry[] = []
+): string[] => {
+  const projects = uniquify(timeEntries.map(({ project }) => project.name));
+  if (projects.length > 1) {
+    return uniquify(
+      timeEntries.map(
+        ({ description, project }) => `${project.name} | ${description}`
+      )
+    )
+      .sort()
+      .map((d) => `     - ${d}`);
+  }
+  return [
+    ...uniquify(timeEntries.map(({ description }) => description))
+      .sort()
+      .map((d) => `     - ${d}`),
+    '',
+    projects.join('/'),
+  ];
 };
 
 const languageCodes = {
@@ -273,24 +303,24 @@ export const generateInvoiceTemplate = (
 
   const lines: Line[] = meta.flags?.includes(LIST_BY_DATES)
     ? customerTimeEntries.days.map(
-        ({ start, timeEntries, totalSecondsSpent }) => ({
-          productId: product.id,
-          taxEnabled: product.taxEnabled,
-          taxRate: product.rate,
-          unitId: product.unitId,
-          unitNetPrice: product.netUnitSalesPrice,
-          productName: `${formatDateForInvoice(start, meta.lang)} | ${[
-            ...new Set(timeEntries.map(({ project }) => project.name)),
-          ].join('/')}`,
-          quantity: getRoundedHours(totalSecondsSpent) || 0,
-          description: [
-            ...new Set(
-              timeEntries.map(({ description }) => description).sort()
-            ),
-          ]
-            .map((d) => `     - ${d}`)
-            .join('\n'),
-        })
+        ({ start, timeEntries, totalSecondsSpent }) => {
+          const projects = uniquify(
+            timeEntries.map(({ project }) => project.name)
+          );
+          return {
+            productId: product.id,
+            taxEnabled: product.taxEnabled,
+            taxRate: product.rate,
+            unitId: product.unitId,
+            unitNetPrice: product.netUnitSalesPrice,
+            quantity: getRoundedHours(totalSecondsSpent) || 0,
+            productName:
+              projects.length > 1
+                ? formatDateForInvoice(start, meta.lang)
+                : `${formatDateForInvoice(start, meta.lang)} | ${projects[0]}`,
+            description: getDescriptionRowsForDates(timeEntries).join('\n'),
+          };
+        }
       )
     : customerTimeEntries.projects.map(
         ({ project, totalSecondsSpent, timeEntries }) => {
@@ -300,11 +330,12 @@ export const generateInvoiceTemplate = (
             taxRate: product.rate,
             unitId: product.unitId,
             unitNetPrice: product.netUnitSalesPrice,
-            productName: project.name,
             quantity: getRoundedHours(totalSecondsSpent) || 0,
-            description: getDescriptionRowsByEntry(timeEntries, meta.lang).join(
-              '\n'
-            ),
+            productName: project.name,
+            description: getDescriptionRowsForProject(
+              timeEntries,
+              meta.lang
+            ).join('\n'),
           };
         }
       );
