@@ -119,13 +119,18 @@ export const bookDraftInvoice = async (
 
 export const bookSendDraftInvoice = async (
   id: string,
-  recipient: string
+  body: {
+    recipient: string;
+    ccRecipient?: string;
+    subject?: string;
+    message?: string;
+    copyMail?: boolean;
+    countryCode?: 'DE' | 'UK';
+  }
 ): Promise<BookedInvoiceResponse> => {
   return fetch(`${BASE_URL}/${DRAFT_INVOICES_PATH}/${id}/booksend/v8`, {
     method: 'POST',
-    body: JSON.stringify({
-      recipient,
-    }),
+    body: JSON.stringify(body),
   });
 };
 
