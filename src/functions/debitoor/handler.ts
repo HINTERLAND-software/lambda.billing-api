@@ -12,7 +12,7 @@ import {
   fetchAllCustomerData,
   fetchGlobalMeta
 } from '@libs/debitoor';
-import { CompanyId } from '@libs/debitoor-types';
+import { Company, CompanyId } from '@libs/debitoor-types';
 import { middyfy } from '@libs/lambda';
 import {
   bulkAddBilledTag,
@@ -22,7 +22,7 @@ import {
   filterTimeEntriesByLabel,
   sanitizeTimeEntries
 } from '@libs/toggl';
-import { clearCaches, getConfig, Logger } from '@libs/utils';
+import { clearCaches, getConfig, Logger, translate } from '@libs/utils';
 import 'source-map-support/register';
 import schema from '../schema';
 
@@ -88,18 +88,36 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
       const batches = Object.entries(batched);
       for (let i = 0; i < batches.length; i++) {
         const [companyId, batch] = batches[i];
-        const company =
+        const company: Company =
           globalMeta.companies[companyId] || globalMeta.companies.default;
         const changeRes = await changeCompany(company);
 
         for (let x = 0; x < batch.length; x++) {
-          const { response, customerData } = batch[x];
+          const {
+            response,
+            customerData: { customer, meta },
+          } = batch[x];
           try {
-            const bookRes = await (customerData.meta.flags?.includes(MAIL)
-              ? bookSendDraftInvoice(
-                  response.id,
-                  changeRes.companyProfile.email
-                )
+            const replacements = {
+              'company name': company.name,
+              'user name': changeRes.companyProfile.responsibleName,
+            };
+            const bookRes = await (meta.flags?.includes(MAIL)
+              ? bookSendDraftInvoice(response.id, {
+                  copyMail: !customer.email,
+                  recipient: customer.email || changeRes.companyProfile.email,
+                  countryCode: meta.lang === 'de' ? 'DE' : 'UK',
+                  subject: translate(
+                    meta.lang,
+                    'INVOICE_SUBJECT',
+                    replacements
+                  ),
+                  message: translate(meta.lang, 'INVOICE_MESSAGE', {
+                    ...replacements,
+                    'total amount': response.totalGrossAmount,
+                    currency: response.currency,
+                  }),
+                })
               : bookDraftInvoice(response.id));
             booked.push(bookRes);
             Logger.log(`Invoice "${bookRes.number}" booked`);
