@@ -132,7 +132,7 @@ export const getConfig = <T extends EventBody>(
 
 export const translate = (
   locale: Locale = 'de',
-  key: string,
+  key: keyof typeof translations.de,
   replacements: Record<string, string | number> = {}
 ): string => {
   if (!translations[locale]) {

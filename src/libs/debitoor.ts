@@ -245,10 +245,10 @@ export const fetchAllCustomerData = async (
     {} as Promise<CustomerDataMapping>
   );
 
-const getDescriptionRowsForProject = (
+const getDescriptionByProjects = (
   timeEntries: TimeEntry[] = [],
   locale: Locale
-): string[] => {
+): string => {
   const reduced = timeEntries.reduce((acc, { description, stop }) => {
     return {
       ...acc,
@@ -263,29 +263,24 @@ const getDescriptionRowsForProject = (
         dates.map((date) => formatDateForInvoice(date, locale))
       ).join(', ');
       return `  - ${description} (${joinedDates})`;
-    });
+    })
+    .join('\n');
 };
 
-const getDescriptionRowsForDates = (
-  timeEntries: EnrichedTimeEntry[] = []
-): string[] => {
+const getDescriptionByDates = (
+  timeEntries: EnrichedTimeEntry[] = [],
+  locale: Locale
+): string => {
   const projects = uniquify(timeEntries.map(({ project }) => project.name));
-  if (projects.length > 1) {
-    return uniquify(
-      timeEntries.map(
-        ({ description, project }) => `${project.name} | ${description}`
-      )
-    )
-      .sort()
-      .map((d) => `     - ${d}`);
-  }
   return [
+    translate(locale, projects.length > 1 ? 'PROJECTS' : 'PROJECT', {
+      projects: projects.join(', '),
+    }),
+    '',
     ...uniquify(timeEntries.map(({ description }) => description))
       .sort()
       .map((d) => `     - ${d}`),
-    '',
-    projects.join('/'),
-  ];
+  ].join('\n');
 };
 
 const languageCodes = {
@@ -303,41 +298,28 @@ export const generateInvoiceTemplate = (
 
   const lines: Line[] = meta.flags?.includes(LIST_BY_DATES)
     ? customerTimeEntries.days.map(
-        ({ start, timeEntries, totalSecondsSpent }) => {
-          const projects = uniquify(
-            timeEntries.map(({ project }) => project.name)
-          );
-          return {
-            productId: product.id,
-            taxEnabled: product.taxEnabled,
-            taxRate: product.rate,
-            unitId: product.unitId,
-            unitNetPrice: product.netUnitSalesPrice,
-            quantity: getRoundedHours(totalSecondsSpent) || 0,
-            productName:
-              projects.length > 1
-                ? formatDateForInvoice(start, meta.lang)
-                : `${formatDateForInvoice(start, meta.lang)} | ${projects[0]}`,
-            description: getDescriptionRowsForDates(timeEntries).join('\n'),
-          };
-        }
+        ({ start, timeEntries, totalSecondsSpent }) => ({
+          productId: product.id,
+          taxEnabled: product.taxEnabled,
+          taxRate: product.rate,
+          unitId: product.unitId,
+          unitNetPrice: product.netUnitSalesPrice,
+          quantity: getRoundedHours(totalSecondsSpent) || 0,
+          productName: formatDateForInvoice(start, meta.lang),
+          description: getDescriptionByDates(timeEntries, meta.lang),
+        })
       )
     : customerTimeEntries.projects.map(
-        ({ project, totalSecondsSpent, timeEntries }) => {
-          return {
-            productId: product.id,
-            taxEnabled: product.taxEnabled,
-            taxRate: product.rate,
-            unitId: product.unitId,
-            unitNetPrice: product.netUnitSalesPrice,
-            quantity: getRoundedHours(totalSecondsSpent) || 0,
-            productName: project.name,
-            description: getDescriptionRowsForProject(
-              timeEntries,
-              meta.lang
-            ).join('\n'),
-          };
-        }
+        ({ project, totalSecondsSpent, timeEntries }) => ({
+          productId: product.id,
+          taxEnabled: product.taxEnabled,
+          taxRate: product.rate,
+          unitId: product.unitId,
+          unitNetPrice: product.netUnitSalesPrice,
+          quantity: getRoundedHours(totalSecondsSpent) || 0,
+          productName: project.name,
+          description: getDescriptionByProjects(timeEntries, meta.lang),
+        })
       );
 
   const notes = translate(meta.lang, 'PERFORMANCE_PERIOD', {
