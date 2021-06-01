@@ -2,6 +2,7 @@ import moment from 'moment';
 import { CustomerDataMapping } from './debitoor-types';
 import { formatDateForInvoice } from './time';
 import { ClientTimeEntries } from './toggl-types';
+import { uniquify } from './utils';
 
 const wrap = (str: unknown) => `"${str}"`;
 
@@ -47,9 +48,9 @@ export const createCsv = (
               stop,
               totalSecondsSpent: activeSeconds,
             }) => {
-              const description = [
-                ...new Set(timeEntries.map(({ description }) => description)),
-              ]
+              const description = uniquify(
+                timeEntries.map(({ description }) => description)
+              )
                 .sort()
                 .join(', ');
 

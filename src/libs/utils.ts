@@ -86,6 +86,8 @@ export class Cache<T> {
   }
 }
 
+export const uniquify = <T>(arr: T[]): T[] => [...new Set(arr)];
+
 export const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -122,8 +124,8 @@ export const getConfig = <T extends EventBody>(
       from: time.startOfMonthFormatted,
       to: time.endOfMonthFormatted,
     },
-    dryRun: body.dryRun ?? !isProduction,
-    setBilled: body.setBilled ?? isProduction,
+    dryRun: body?.dryRun ?? !isProduction,
+    setBilled: body?.setBilled ?? isProduction,
     time,
   };
 };
