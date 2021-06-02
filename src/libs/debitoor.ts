@@ -125,7 +125,7 @@ export const bookSendDraftInvoice = async (
     subject?: string;
     message?: string;
     copyMail?: boolean;
-    countryCode?: 'DE' | 'UK';
+    countryCode?: 'DE' | 'GB';
   }
 ): Promise<BookedInvoiceResponse> => {
   return fetch(`${BASE_URL}/${DRAFT_INVOICES_PATH}/${id}/booksend/v8`, {
