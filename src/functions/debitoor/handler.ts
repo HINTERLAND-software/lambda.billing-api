@@ -99,6 +99,7 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
           } = batch[x];
           try {
             const replacements = {
+              'customer name': customer.name,
               'company name': company.name,
               'user name': changeRes.companyProfile.responsibleName,
             };
