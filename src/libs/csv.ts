@@ -1,5 +1,6 @@
-import pdf from 'html-pdf';
+import Chromium from 'chrome-aws-lambda';
 import moment from 'moment';
+import { Browser } from 'puppeteer-core';
 import { CustomerDataMapping, GlobalMeta } from './debitoor-types';
 import { formatDateForInvoice } from './time';
 import { ClientTimeEntries } from './toggl-types';
@@ -164,13 +165,21 @@ export const csvToHtml = (csv: string, name: string): string => {
   `;
 };
 
-export const htmlToPdf = (html: string): Promise<Buffer> => {
-  return new Promise((resolve, reject) => {
-    pdf
-      .create(html, { orientation: 'landscape', format: 'A4' })
-      .toBuffer((err, res) => {
-        if (err) return reject(err);
-        resolve(res);
-      });
-  });
+export const htmlToPdf = async (html: string): Promise<Buffer> => {
+  let browser: Browser;
+  try {
+    browser = await Chromium.puppeteer.launch({
+      args: Chromium.args,
+      defaultViewport: Chromium.defaultViewport,
+      executablePath: await Chromium.executablePath,
+      headless: Chromium.headless,
+      ignoreHTTPSErrors: true,
+    });
+    const page = await browser.newPage();
+    await page.setContent(html);
+    const pdf = await page.pdf({ format: 'a4', landscape: true });
+    return pdf;
+  } finally {
+    await browser?.close();
+  }
 };
