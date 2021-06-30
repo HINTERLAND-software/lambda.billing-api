@@ -19,7 +19,7 @@ import {
   Line,
   LogoResponse,
   Product,
-  Settings
+  Settings,
 } from './debitoor-types';
 import { formatDateForInvoice, getRoundedHours, sortByDate } from './time';
 import { ClientTimeEntries, EnrichedTimeEntry, TimeEntry } from './toggl-types';
@@ -30,7 +30,7 @@ import {
   initFetch,
   Logger,
   translate,
-  uniquify
+  uniquify,
 } from './utils';
 
 const BASE_URL = 'https://api.debitoor.com/api';

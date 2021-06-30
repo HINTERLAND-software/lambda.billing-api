@@ -1,5 +1,14 @@
 import { Locale } from 'src/translations';
-import { ATTACH_TIMESHEET, BOOK, COMPANY, FLAGS, LANG, LIST_BY_DATES, MAIL, SKU } from './constants';
+import {
+  ATTACH_TIMESHEET,
+  BOOK,
+  COMPANY,
+  FLAGS,
+  LANG,
+  LIST_BY_DATES,
+  MAIL,
+  SKU,
+} from './constants';
 
 export type CompanyId = 'jr' | 'default';
 
@@ -8,7 +17,7 @@ export interface CustomerMeta {
   [SKU]: string;
   [LANG]?: Locale;
   [COMPANY]?: CompanyId;
-  [FLAGS]?: (typeof flags[number])[];
+  [FLAGS]?: typeof flags[number][];
 }
 
 export type CustomerDataMapping = Record<string, CustomerData>;
