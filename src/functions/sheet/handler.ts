@@ -1,9 +1,9 @@
 import {
   httpResponse,
-  ValidatedEventAPIGatewayProxyEvent
+  ValidatedEventAPIGatewayProxyEvent,
 } from '@libs/apiGateway';
 import { createCsv } from '@libs/csv';
-import { fetchAllCustomerData } from '@libs/debitoor';
+import { fetchAllCustomerData, fetchGlobalMeta } from '@libs/debitoor';
 import { middyfy } from '@libs/lambda';
 import {
   bulkAddBilledTag,
@@ -11,7 +11,7 @@ import {
   fetchTimeEntriesBetween,
   filterClientTimeEntriesByCustomer,
   filterTimeEntriesByLabel,
-  sanitizeTimeEntries
+  sanitizeTimeEntries,
 } from '@libs/toggl';
 import { clearCaches, getConfig, Logger } from '@libs/utils';
 import 'source-map-support/register';
@@ -21,10 +21,9 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
   event
 ) => {
   try {
-    const { time, ...config } = getConfig(
-      event.body,
-      (event as any).usePreviousMonth
-    );
+    const globalMeta = await fetchGlobalMeta();
+    const fullConfig = getConfig(event.body, (event as any).usePreviousMonth);
+    const { time, ...config } = fullConfig;
     const {
       setBilled,
       dryRun,
@@ -54,7 +53,12 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
     );
 
     const customerData = await fetchAllCustomerData(customerTimeEntries);
-    const csv = createCsv(customerTimeEntries, customerData);
+    const csv = createCsv(
+      customerTimeEntries,
+      customerData,
+      fullConfig,
+      globalMeta
+    );
     if (setBilled) {
       await bulkAddBilledTag(sanitizedTimeEntries);
     }

@@ -1,10 +1,12 @@
 import moment from 'moment';
-import { CustomerDataMapping } from './debitoor-types';
+import { CustomerDataMapping, GlobalMeta } from './debitoor-types';
 import { formatDateForInvoice } from './time';
 import { ClientTimeEntries } from './toggl-types';
-import { uniquify } from './utils';
+import { Config, initTranslate, uniquify } from './utils';
 
+const delimiter = ',';
 const wrap = (str: unknown) => `"${str}"`;
+const mapWrapJoin = (...arr: unknown[]) => arr.map(wrap).join(delimiter);
 
 const formatSeconds = (seconds: number) => {
   const minutes = seconds / 60;
@@ -20,26 +22,45 @@ const formatSeconds = (seconds: number) => {
 
 export const createCsv = (
   customerTimeEntries: ClientTimeEntries[],
-  customerDataMapping: CustomerDataMapping
+  customerDataMapping: CustomerDataMapping,
+  config: Config,
+  globalMeta: GlobalMeta
 ) => {
   const header = [
-    'Date',
-    'Start',
-    'End',
-    'Pause',
-    'Description',
-    'Location',
-    'Total',
-    'Active',
-  ];
-  return customerTimeEntries.map(({ customer, days }) => {
+    'DATE',
+    'DESCRIPTION',
+    'LOCATION',
+    'START',
+    'END',
+    'PAUSE',
+    'TOTAL_TIME_WORKED',
+  ] as const;
+
+  return customerTimeEntries.map(({ customer, days, totalSecondsSpent }) => {
     const customerData = customerDataMapping[customer.name];
     if (!customerData)
       throw new Error(`No customer found for ${customer.name}`);
+    const { meta } = customerData;
+    const t = initTranslate(meta.lang);
+    const company = globalMeta.companies[meta.company];
     return {
       name: customer.name,
       csv: [
-        header.map(wrap).join(';'),
+        mapWrapJoin(t('TIMESHEET')),
+        '',
+        mapWrapJoin(
+          t('FROM'),
+          formatDateForInvoice(config.time.startOfMonthFormatted, meta.lang)
+        ),
+        mapWrapJoin(
+          t('TO'),
+          formatDateForInvoice(config.time.endOfMonthFormatted, meta.lang)
+        ),
+        mapWrapJoin(t('CLIENT'), customer.name),
+        mapWrapJoin(t('PROVIDER'), `${company.name} (${company.email})`),
+        mapWrapJoin(t('SERVICE_LEVEL'), t('SERVICE_LEVEL_DEFAULT')),
+        '',
+        mapWrapJoin(...header.map((h) => t(h))),
         ...days
           .map(
             ({
@@ -61,23 +82,34 @@ export const createCsv = (
                 .asSeconds();
               const pauseSeconds = totalSeconds - activeSeconds;
 
-              const result = {
-                date: formatDateForInvoice(start, customerData.meta.lang),
-                start: startDate.format('HH:mm'),
-                end: endDate.format('HH:mm'),
-                pause: formatSeconds(pauseSeconds),
-                description,
-                total: formatSeconds(totalSeconds),
-                active: formatSeconds(activeSeconds),
-                location: 'Offsite',
+              const isOnsite = timeEntries.some((entry) =>
+                (entry.tags || [])
+                  .map((tag) => tag.toLowerCase())
+                  .includes('onsite')
+              );
+
+              const totalTimeWorked = formatSeconds(activeSeconds);
+
+              const result: Record<typeof header[number], unknown> = {
+                DATE: formatDateForInvoice(start, meta.lang),
+                START: startDate.format('HH:mm'),
+                END: endDate.format('HH:mm'),
+                PAUSE: formatSeconds(pauseSeconds),
+                DESCRIPTION: description,
+                TOTAL_TIME_WORKED: totalTimeWorked,
+                LOCATION: isOnsite ? t('ONSITE') : t('OFFSITE'),
               };
 
               return result;
             }
           )
-          .map((result) =>
-            header.map((h) => wrap(result[h.toLowerCase()])).join(';')
-          ),
+          .map((result) => mapWrapJoin(...header.map((h) => result[h]))),
+        '',
+        mapWrapJoin(
+          ...Array(header.length - 2).fill(''),
+          t('SUM'),
+          formatSeconds(totalSecondsSpent)
+        ),
       ].join('\n'),
     };
   });

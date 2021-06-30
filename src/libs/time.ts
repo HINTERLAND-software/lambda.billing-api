@@ -36,12 +36,12 @@ export const sortByDate = <T>(a: T, b: T) =>
 export class Time {
   private _moment: moment.Moment = moment();
   private _format: string = 'YYYY-MM-DD';
-  constructor(month?: number, year?: number) {
-    if (month !== undefined) {
-      this._moment.month(month - 1);
+  constructor(public month?: number, public year?: number) {
+    if (this.month !== undefined) {
+      this._moment.month(this.month - 1);
     }
-    if (year !== undefined) {
-      this._moment.year(year);
+    if (this.year !== undefined) {
+      this._moment.year(this.year);
     }
   }
 

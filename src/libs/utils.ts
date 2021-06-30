@@ -98,7 +98,7 @@ export type Range = {
 
 export type EventBody = FromSchema<typeof schema>;
 
-export type Config = {
+export type Config = Omit<EventBody, 'dryRun' | 'range'> & {
   time: Time;
   dryRun: boolean;
   setBilled: boolean;
@@ -111,7 +111,7 @@ export type Config = {
 export const getConfig = <T extends EventBody>(
   body?: T,
   usePreviousMonth?: boolean
-): Omit<EventBody, 'dryRun' | 'range'> & Config => {
+): Config => {
   const month =
     body?.range?.month ?? (usePreviousMonth ? getLastMonth() : undefined);
 
@@ -130,10 +130,18 @@ export const getConfig = <T extends EventBody>(
   };
 };
 
+export type TranslationKey = keyof typeof translations.de;
+export type Replacements = Record<string, string | number>;
+
+export const initTranslate = (locale?: Locale) => (
+  key: TranslationKey,
+  replacements?: Replacements
+) => translate(locale, key, replacements);
+
 export const translate = (
   locale: Locale = 'de',
-  key: keyof typeof translations.de,
-  replacements: Record<string, string | number> = {}
+  key: TranslationKey,
+  replacements: Replacements = {}
 ): string => {
   if (!translations[locale]) {
     throw new Error(

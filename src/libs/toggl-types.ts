@@ -1,4 +1,3 @@
-
 export interface Day {
   start: string;
   stop: string;
