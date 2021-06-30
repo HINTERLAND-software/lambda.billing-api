@@ -1,3 +1,4 @@
+import pdf from 'html-pdf';
 import moment from 'moment';
 import { CustomerDataMapping, GlobalMeta } from './debitoor-types';
 import { formatDateForInvoice } from './time';
@@ -47,7 +48,7 @@ export const createCsv = (
       name: customer.name,
       csv: [
         mapWrapJoin(t('TIMESHEET')),
-        '',
+        mapWrapJoin(t('CLIENT'), customer.name),
         mapWrapJoin(
           t('FROM'),
           formatDateForInvoice(config.time.startOfMonthFormatted, meta.lang)
@@ -56,7 +57,6 @@ export const createCsv = (
           t('TO'),
           formatDateForInvoice(config.time.endOfMonthFormatted, meta.lang)
         ),
-        mapWrapJoin(t('CLIENT'), customer.name),
         mapWrapJoin(t('PROVIDER'), `${company.name} (${company.email})`),
         mapWrapJoin(t('SERVICE_LEVEL'), t('SERVICE_LEVEL_DEFAULT')),
         '',
@@ -104,7 +104,6 @@ export const createCsv = (
             }
           )
           .map((result) => mapWrapJoin(...header.map((h) => result[h]))),
-        '',
         mapWrapJoin(
           ...Array(header.length - 2).fill(''),
           t('SUM'),
@@ -112,5 +111,66 @@ export const createCsv = (
         ),
       ].join('\n'),
     };
+  });
+};
+
+export const csvToHtml = (csv: string, name: string): string => {
+  const [metaHeader, ...rows] = csv.split('\n');
+  const rowToTable = (
+    row: string,
+    withBorders: boolean,
+    cellType: 'th' | 'td' = 'td'
+  ) =>
+    `<tr>${row
+      .split(`"${delimiter}"`)
+      .map(
+        (cell) =>
+          `<${cellType} style="padding: 4px 8px; ${
+            withBorders ? 'border: 1px solid black;' : ''
+          }">${cell.replace(/"/g, '')}</${cellType}>`
+      )
+      .join('')}
+      </tr>`;
+
+  const splitIndex = rows.indexOf('');
+  const metaRows = rows.slice(0, splitIndex - 1);
+  const [entriesHeader, ...entriesRows] = rows.slice(splitIndex + 1);
+
+  return `
+  <!DOCTYPE html>
+  <html style="font-size: 8px; font-family: Arial, Helvetica, sans-serif;">
+    <head><title>${name}</title></head>
+    <body>
+      <table style="text-align: left; border-collapse: collapse; margin-bottom: 16px;">
+        <thead style="font-weight: bold;">${rowToTable(
+          metaHeader,
+          false,
+          'th'
+        )}</thead>
+        <tbody>${metaRows.map((row) => rowToTable(row, false)).join('')}</tbody>
+      </table>
+      <table style="text-align: left; border-collapse: collapse; border: 1px solid black;">
+        <thead style="font-weight: bold; border: 1px solid black;">${rowToTable(
+          entriesHeader,
+          true,
+          'th'
+        )}</thead>
+        <tbody style="border: 1px solid black;">${entriesRows
+          .map((row) => rowToTable(row, true))
+          .join('')}</tbody>
+      </table>
+    </body>
+  </html>
+  `;
+};
+
+export const htmlToPdf = (html: string): Promise<Buffer> => {
+  return new Promise((resolve, reject) => {
+    pdf
+      .create(html, { orientation: 'landscape', format: 'A4' })
+      .toBuffer((err, res) => {
+        if (err) return reject(err);
+        resolve(res);
+      });
   });
 };

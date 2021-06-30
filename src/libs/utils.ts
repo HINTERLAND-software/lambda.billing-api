@@ -29,7 +29,7 @@ export class Logger {
 export const wait = (ms: number) =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
-export const initFetch = (authorization) => async (
+export const initFetch = (authorization: string) => async (
   url: string,
   options: RequestInit = {},
   jsonResponse = true
