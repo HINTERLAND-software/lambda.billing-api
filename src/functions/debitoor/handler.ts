@@ -1,6 +1,6 @@
 import {
   httpResponse,
-  ValidatedEventAPIGatewayProxyEvent
+  ValidatedEventAPIGatewayProxyEvent,
 } from '@libs/apiGateway';
 import { BOOK, LABEL_BILLED, MAIL } from '@libs/constants';
 import {
@@ -10,7 +10,7 @@ import {
   createDraftInvoices,
   CreateDraftInvoicesResponse,
   fetchAllCustomerData,
-  fetchGlobalMeta
+  fetchGlobalMeta,
 } from '@libs/debitoor';
 import { Company, CompanyId } from '@libs/debitoor-types';
 import { middyfy } from '@libs/lambda';
@@ -20,7 +20,7 @@ import {
   fetchTimeEntriesBetween,
   filterClientTimeEntriesByCustomer,
   filterTimeEntriesByLabel,
-  sanitizeTimeEntries
+  sanitizeTimeEntries,
 } from '@libs/toggl';
 import { clearCaches, getConfig, Logger, translate } from '@libs/utils';
 import 'source-map-support/register';
@@ -67,10 +67,12 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
     const erroneous = [];
     if (!dryRun) {
       const customerData = await fetchAllCustomerData(customerTimeEntries);
+
       draftInvoices = await createDraftInvoices(
         customerTimeEntries,
         config,
-        customerData
+        customerData,
+        globalMeta
       );
 
       const bookableDraftInvoices = draftInvoices.filter(({ customerData }) =>

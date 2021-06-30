@@ -9,7 +9,7 @@ import {
   EnrichedProject,
   EnrichedTimeEntry,
   Project,
-  TimeEntry
+  TimeEntry,
 } from './toggl-types';
 import { Cache, initFetch, Logger } from './utils';
 

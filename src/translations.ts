@@ -2,6 +2,27 @@ export type Locale = 'de' | 'en';
 
 export default {
   en: {
+    // CSV
+    DATE: 'Date',
+    START: 'Start',
+    END: 'End',
+    PAUSE: 'Pause',
+    DESCRIPTION: 'Description',
+    LOCATION: 'Location',
+    SERVICE_LEVEL: 'Service level',
+    SERVICE_LEVEL_DEFAULT: 'Full stack development',
+    TOTAL_TIME_WORKED: 'Total time worked',
+    TIMESHEET: 'Timesheet',
+    MONTH: 'Month',
+    YEAR: 'Year',
+    FROM: 'From',
+    TO: 'To',
+    CLIENT: 'Client',
+    PROVIDER: 'Provider of services',
+    ONSITE: 'Onsite',
+    OFFSITE: 'Offsite',
+    SUM: 'Sum (hh:mm)',
+    // MISC
     PERFORMANCE_PERIOD: 'Performance period {{from}} - {{to}}',
     ADDITIONAL_NOTES:
       'Additional work will be charged at an hourly rate of {{netUnitSalesPrice}}€ (net).',
@@ -29,6 +50,27 @@ export default {
       'Hello,\n \nclick on the link below to view your offer from {{customer name}} for {{currency}} {{total amount}}. Attached you can find a PDF copy of the offer.\n \nBest regards\n{{user name}}',
   },
   de: {
+    // CSV
+    DATE: 'Datum',
+    START: 'Start',
+    END: 'Ende',
+    PAUSE: 'Pause',
+    DESCRIPTION: 'Beschreibung',
+    LOCATION: 'Ort',
+    SERVICE_LEVEL: 'Servicelevel',
+    SERVICE_LEVEL_DEFAULT: 'Full stack development',
+    TOTAL_TIME_WORKED: 'Gesamtarbeitszeit',
+    TIMESHEET: 'Stundenzettel',
+    MONTH: 'Monat',
+    YEAR: 'Jahr',
+    FROM: 'Von',
+    TO: 'Bis',
+    CLIENT: 'Kunde',
+    PROVIDER: 'Anbieter der Dienstleistungen',
+    ONSITE: 'Onsite',
+    OFFSITE: 'Offsite',
+    SUM: 'Summe (hh:mm)',
+    // MISC
     PERFORMANCE_PERIOD: 'Leistungszeitraum {{from}} - {{to}}',
     ADDITIONAL_NOTES:
       'Zusätzlich anfallende Arbeiten werden zu einem Stundensatz von {{netUnitSalesPrice}}€ (Netto) verrechnet.',

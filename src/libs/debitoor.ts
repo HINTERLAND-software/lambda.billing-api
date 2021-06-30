@@ -1,8 +1,11 @@
 import FormData from 'form-data';
+import nodeFetch from 'node-fetch';
 import * as qs from 'querystring';
 import { Locale } from 'src/translations';
-import { LIST_BY_DATES } from './constants';
+import { ATTACH_TIMESHEET, LIST_BY_DATES } from './constants';
+import { createCsv, csvToHtml, htmlToPdf } from './csv';
 import {
+  Attachment,
   BookedInvoiceResponse,
   Company,
   Customer,
@@ -11,11 +14,12 @@ import {
   CustomerMeta,
   DraftInvoiceRequest,
   DraftInvoiceResponse,
+  File,
   GlobalMeta,
   Line,
   LogoResponse,
   Product,
-  Settings
+  Settings,
 } from './debitoor-types';
 import { formatDateForInvoice, getRoundedHours, sortByDate } from './time';
 import { ClientTimeEntries, EnrichedTimeEntry, TimeEntry } from './toggl-types';
@@ -26,7 +30,7 @@ import {
   initFetch,
   Logger,
   translate,
-  uniquify
+  uniquify,
 } from './utils';
 
 const BASE_URL = 'https://api.debitoor.com/api';
@@ -35,7 +39,9 @@ const PRODUCTS_PATH = 'products/v1';
 const SETTINGS_PATH = 'settings/v3';
 const DRAFT_INVOICES_PATH = 'sales/draftinvoices';
 
-const fetch = initFetch(`Bearer ${process.env.DEBITOOR_API_TOKEN}`);
+const authorization = `Bearer ${process.env.DEBITOOR_API_TOKEN}`;
+
+const fetch = initFetch(authorization);
 
 const customerCache = new Cache<Customer[]>('debitoor.customers', null);
 const productCache = new Cache<{ [key: string]: Product }>(
@@ -71,6 +77,30 @@ export const upsertCustomer = async (data: Customer): Promise<Customer> => {
     method: 'POST',
     body: JSON.stringify(data),
   });
+};
+
+export const createFile = async <T>(
+  buffer: Buffer,
+  filename: string
+): Promise<T> => {
+  const form = new FormData();
+
+  const fileName = `ts_${filename.replace(/\./, '')}.pdf`;
+
+  form.append('file', buffer, { filename: fileName });
+
+  const url = `${BASE_URL}/files/v1?fileName=${encodeURIComponent(fileName)}`;
+  const res = await nodeFetch(url, {
+    method: 'POST',
+    body: form,
+    headers: {
+      ...form.getHeaders(),
+      Authorization: authorization,
+    },
+  });
+  const json = await res.json();
+  if (json['message']) return Promise.reject({ ...json, url });
+  return json;
 };
 
 export const fetchProductBySku = async (sku: string): Promise<Product> => {
@@ -361,7 +391,8 @@ export type CreateDraftInvoicesResponse = {
 export const createDraftInvoices = (
   customerTimeEntries: ClientTimeEntries[],
   config: Config,
-  customerDataMapping: CustomerDataMapping
+  customerDataMapping: CustomerDataMapping,
+  globalMeta: GlobalMeta
 ): Promise<CreateDraftInvoicesResponse[]> => {
   return Promise.all(
     customerTimeEntries.map(async (customerTimeEntries) => {
@@ -372,11 +403,40 @@ export const createDraftInvoices = (
           throw new Error(
             `No customer found for ${customerTimeEntries.customer.name}`
           );
+
         const request = generateInvoiceTemplate(
           customerData,
           customerTimeEntries,
           config
         );
+
+        if (customerData.meta?.flags?.includes(ATTACH_TIMESHEET)) {
+          const csvs = createCsv(
+            [customerTimeEntries],
+            customerDataMapping,
+            config,
+            globalMeta
+          );
+
+          request.attachments = await Promise.all(
+            csvs.map(({ csv, name }) => {
+              const matches = name.match(/\b(\w)/g); // ['J','S','O','N']
+              const fileName = [
+                matches.join(''),
+                formatDateForInvoice(
+                  config.time.startOfMonthFormatted,
+                  customerData.meta.lang
+                ),
+                formatDateForInvoice(
+                  config.time.endOfMonthFormatted,
+                  customerData.meta.lang
+                ),
+              ].join('_');
+              return generateAttachment(csv, fileName);
+            })
+          );
+        }
+
         const response = await createDraftInvoice(request);
         return {
           response,
@@ -392,4 +452,14 @@ export const createDraftInvoices = (
       }
     })
   );
+};
+
+export const generateAttachment = async (
+  csv: string,
+  name: string
+): Promise<Attachment> => {
+  const html = csvToHtml(csv, name);
+  const buffer = await htmlToPdf(html);
+  const file: File = await createFile(buffer, name);
+  return { fileId: file.id };
 };
