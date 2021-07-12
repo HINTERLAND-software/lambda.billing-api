@@ -44,7 +44,8 @@ export const createCsv = (
       throw new Error(`No customer found for ${customer.name}`);
     const { meta } = customerData;
     const t = initTranslate(meta.lang);
-    const company = globalMeta.companies[meta.company];
+    const company = globalMeta.companies[meta.company || 'default'];
+
     return {
       name: customer.name,
       csv: [
