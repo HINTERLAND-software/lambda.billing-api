@@ -1,6 +1,6 @@
 import {
   httpResponse,
-  ValidatedEventAPIGatewayProxyEvent,
+  ValidatedEventAPIGatewayProxyEvent
 } from '@libs/apiGateway';
 import { createCsv } from '@libs/csv';
 import { fetchAllCustomerData, fetchGlobalMeta } from '@libs/debitoor';
@@ -11,7 +11,7 @@ import {
   fetchTimeEntriesBetween,
   filterClientTimeEntriesByCustomer,
   filterTimeEntriesByLabel,
-  sanitizeTimeEntries,
+  sanitizeTimeEntries
 } from '@libs/toggl';
 import { clearCaches, getConfig, Logger } from '@libs/utils';
 import 'source-map-support/register';
@@ -69,6 +69,7 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
       {
         config,
         csv: csvs,
+        customerData,
         customerTimeEntries: dryRun ? customerTimeEntries : null,
       }
     );
