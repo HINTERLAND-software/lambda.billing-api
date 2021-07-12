@@ -1,6 +1,6 @@
 import {
   httpResponse,
-  ValidatedEventAPIGatewayProxyEvent,
+  ValidatedEventAPIGatewayProxyEvent
 } from '@libs/apiGateway';
 import { BOOK, LABEL_BILLED, MAIL } from '@libs/constants';
 import {
@@ -10,9 +10,9 @@ import {
   createDraftInvoices,
   CreateDraftInvoicesResponse,
   fetchAllCustomerData,
-  fetchGlobalMeta,
+  fetchGlobalMeta
 } from '@libs/debitoor';
-import { Company, CompanyId } from '@libs/debitoor-types';
+import { Company, CompanyId, CustomerDataMapping } from '@libs/debitoor-types';
 import { middyfy } from '@libs/lambda';
 import {
   bulkAddBilledTag,
@@ -20,7 +20,7 @@ import {
   fetchTimeEntriesBetween,
   filterClientTimeEntriesByCustomer,
   filterTimeEntriesByLabel,
-  sanitizeTimeEntries,
+  sanitizeTimeEntries
 } from '@libs/toggl';
 import { clearCaches, getConfig, Logger, translate } from '@libs/utils';
 import 'source-map-support/register';
@@ -65,8 +65,9 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
     let draftInvoices: CreateDraftInvoicesResponse[] = [];
     const booked = [];
     const erroneous = [];
+    let customerData: CustomerDataMapping;
     if (!dryRun) {
-      const customerData = await fetchAllCustomerData(customerTimeEntries);
+      customerData = await fetchAllCustomerData(customerTimeEntries);
 
       draftInvoices = await createDraftInvoices(
         customerTimeEntries,
@@ -143,6 +144,7 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
       {
         config,
         debitoor: draftInvoices,
+        customerData,
         customerTimeEntries: dryRun ? customerTimeEntries : null,
         booked,
         erroneous,
