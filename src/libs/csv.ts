@@ -173,7 +173,7 @@ export const htmlToPdf = async (html: string): Promise<Buffer> => {
       args: Chromium.args,
       defaultViewport: Chromium.defaultViewport,
       executablePath: await Chromium.executablePath,
-      headless: Chromium.headless,
+      headless: true, // Chromium.headless,
       ignoreHTTPSErrors: true,
     });
     const page = await browser.newPage();

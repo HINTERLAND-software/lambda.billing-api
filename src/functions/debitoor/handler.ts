@@ -64,7 +64,7 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
 
     let draftInvoices: CreateDraftInvoicesResponse[] = [];
     const booked = [];
-    const erroneous = [];
+    let erroneous = [];
     let customerData: CustomerDataMapping;
     if (!dryRun) {
       customerData = await fetchAllCustomerData(customerTimeEntries);
@@ -76,12 +76,22 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
         globalMeta
       );
 
+      erroneous = draftInvoices.reduce(
+        (acc, invoice) => (invoice.error ? [...acc, invoice] : acc),
+        erroneous
+      );
+      draftInvoices = draftInvoices.filter(({ error }) => !error);
+
       const bookableDraftInvoices = draftInvoices.filter(({ customerData }) =>
-        customerData.meta.flags?.includes(BOOK)
+        customerData?.meta.flags?.includes(BOOK)
       );
 
       const batched = bookableDraftInvoices.reduce((acc, draftInvoice) => {
-        const companyId = draftInvoice.customerData.meta.company || 'default';
+        const companyId = draftInvoice.customerData?.meta.company || 'default';
+        if (!draftInvoice.customerData) {
+          Logger.error(draftInvoice);
+          throw new Error('Customerdata not found');
+        }
         return {
           ...acc,
           [companyId]: [...(acc[companyId] || []), draftInvoice],
@@ -126,7 +136,7 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
             booked.push(bookRes);
             Logger.log(`Invoice "${bookRes.number}" booked`);
           } catch (error) {
-            erroneous.push({ response, error });
+            erroneous = [...erroneous, { response, error }];
           }
         }
       }

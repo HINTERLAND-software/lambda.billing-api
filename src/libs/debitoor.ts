@@ -19,7 +19,7 @@ import {
   Line,
   LogoResponse,
   Product,
-  Settings,
+  Settings
 } from './debitoor-types';
 import { formatDateForInvoice, getRoundedHours, sortByDate } from './time';
 import { ClientTimeEntries, EnrichedTimeEntry, TimeEntry } from './toggl-types';
@@ -30,7 +30,7 @@ import {
   initFetch,
   Logger,
   translate,
-  uniquify,
+  uniquify
 } from './utils';
 
 const BASE_URL = 'https://api.debitoor.com/api';
@@ -64,7 +64,9 @@ export const fetchCustomers = async (): Promise<Customer[]> => {
   return customers;
 };
 
-export const upsertCustomer = async (data: Customer): Promise<Customer> => {
+export const upsertCustomer = async (
+  data: Partial<Customer>
+): Promise<Customer> => {
   const customers = await fetchCustomers();
   const customer = customers.find(({ name }) => name === data.name);
   if (customer?.id) {
@@ -389,13 +391,13 @@ export type CreateDraftInvoicesResponse = {
 };
 
 export const createDraftInvoices = (
-  customerTimeEntries: ClientTimeEntries[],
+  customersTimeEntries: ClientTimeEntries[],
   config: Config,
   customerDataMapping: CustomerDataMapping,
   globalMeta: GlobalMeta
 ): Promise<CreateDraftInvoicesResponse[]> => {
   return Promise.all(
-    customerTimeEntries.map(async (customerTimeEntries) => {
+    customersTimeEntries.map(async (customerTimeEntries) => {
       try {
         const customerData =
           customerDataMapping[customerTimeEntries.customer.name];
@@ -438,6 +440,10 @@ export const createDraftInvoices = (
         }
 
         const response = await createDraftInvoice(request);
+        if (!response) {
+          Logger.error(request);
+          throw new Error('No response');
+        }
         return {
           response,
           customerTimeEntries,

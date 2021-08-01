@@ -9,7 +9,7 @@ import {
   EnrichedProject,
   EnrichedTimeEntry,
   Project,
-  TimeEntry,
+  TimeEntry
 } from './toggl-types';
 import { Cache, initFetch, Logger } from './utils';
 
@@ -65,10 +65,10 @@ export const filterTimeEntriesByLabel = (
   labelBlacklist: string[] = []
 ): TimeEntry[] => {
   return timeEntries
-    .filter(({ description, pid }) => {
+    .filter(({ description, pid, id }) => {
       if (!pid || !description) {
         Logger.error(
-          `Project of time entry "${description} <${pid}>" not found`
+          `Project of time entry "${description} (${id}) <project:${pid}>" not found`
         );
       }
       return description && pid;
