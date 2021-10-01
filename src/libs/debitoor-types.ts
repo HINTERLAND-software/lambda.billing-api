@@ -3,6 +3,7 @@ import {
   ATTACH_TIMESHEET,
   BILL_PER_PROJECT,
   BOOK,
+  CC,
   COMPANY,
   FLAGS,
   LANG,
@@ -15,6 +16,7 @@ export type CompanyId = 'jr' | 'default';
 const flags = [ATTACH_TIMESHEET, BILL_PER_PROJECT, MAIL, BOOK] as const;
 export interface CustomerMeta {
   [SKU]: string;
+  [CC]?: string;
   [LANG]?: Locale;
   [COMPANY]?: CompanyId;
   [FLAGS]?: typeof flags[number][];

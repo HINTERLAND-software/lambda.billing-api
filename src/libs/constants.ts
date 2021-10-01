@@ -1,4 +1,5 @@
 export const SKU = 'sku';
+export const CC = 'cc';
 export const LANG = 'lang';
 export const FLAGS = 'flags';
 export const COMPANY = 'company';

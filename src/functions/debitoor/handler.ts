@@ -120,6 +120,7 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
               ? bookSendDraftInvoice(response.id, {
                   copyMail: !customer.email,
                   recipient: customer.email || changeRes.companyProfile.email,
+                  ccRecipient: meta.cc,
                   countryCode: meta.lang === 'de' ? 'DE' : 'GB',
                   subject: translate(
                     meta.lang,
