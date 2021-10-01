@@ -3,6 +3,7 @@ import nodeFetch, { RequestInit } from 'node-fetch';
 import schema from 'src/functions/schema';
 import translations, { Locale } from '../translations';
 import { getLastMonth, Time } from './time';
+import { ClientTimeEntries, ProjectTimeEntries } from './toggl-types';
 
 export const getEnvironment = (): string => {
   const { STAGE, NODE_ENV = 'development' } = process.env;
@@ -166,3 +167,9 @@ export const translate = (
     translation
   );
 };
+
+export function isClientTimeEntries(
+  timeEntries: ClientTimeEntries | ProjectTimeEntries
+): timeEntries is ClientTimeEntries {
+  return (<ClientTimeEntries>timeEntries).customer !== undefined;
+}

@@ -3,8 +3,13 @@ import moment from 'moment';
 import { Browser } from 'puppeteer-core';
 import { CustomerDataMapping, GlobalMeta } from './debitoor-types';
 import { formatDateForInvoice } from './time';
-import { ClientTimeEntries } from './toggl-types';
-import { Config, initTranslate, uniquify } from './utils';
+import { ClientTimeEntries, ProjectTimeEntries } from './toggl-types';
+import {
+  Config,
+  initTranslate,
+  isClientTimeEntries,
+  uniquify
+} from './utils';
 
 const delimiter = ',';
 const wrap = (str: unknown) => `"${str}"`;
@@ -23,7 +28,7 @@ const formatSeconds = (seconds: number) => {
 };
 
 export const createCsv = (
-  customerTimeEntries: ClientTimeEntries[],
+  customerTimeEntries: (ClientTimeEntries | ProjectTimeEntries)[],
   customerDataMapping: CustomerDataMapping,
   config: Config,
   globalMeta: GlobalMeta
@@ -31,6 +36,7 @@ export const createCsv = (
   const header = [
     'DATE',
     'DESCRIPTION',
+    'PROJECT_HEADER',
     'LOCATION',
     'START',
     'END',
@@ -38,7 +44,12 @@ export const createCsv = (
     'TOTAL_TIME_WORKED',
   ] as const;
 
-  return customerTimeEntries.map(({ customer, days, totalSecondsSpent }) => {
+  return customerTimeEntries.map((timeEntries) => {
+    const { days, totalSecondsSpent } = timeEntries;
+    const customer = isClientTimeEntries(timeEntries)
+      ? timeEntries.customer
+      : timeEntries.project.customer;
+
     const customerData = customerDataMapping[customer.name];
     if (!customerData)
       throw new Error(`No customer found for ${customer.name}`);
@@ -98,6 +109,9 @@ export const createCsv = (
                 END: endDate.format('HH:mm'),
                 PAUSE: formatSeconds(pauseSeconds),
                 DESCRIPTION: description,
+                PROJECT_HEADER: uniquify(
+                  timeEntries.map(({ project }) => project.name)
+                ).join(', '),
                 TOTAL_TIME_WORKED: totalTimeWorked,
                 LOCATION: isOnsite ? t('ONSITE') : t('OFFSITE'),
               };

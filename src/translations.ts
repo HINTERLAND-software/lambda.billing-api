@@ -28,6 +28,7 @@ export default {
       'Additional work will be charged at an hourly rate of {{netUnitSalesPrice}}€ (net).',
     PROJECTS: 'Projects: {{projects}}',
     PROJECT: 'Project: {{projects}}',
+    PROJECT_HEADER: 'Project',
     // TEMPLATES
     DRAFTINVOICE_SUBJECT: 'Draft invoice from {{company name}}',
     DRAFTINVOICE_MESSAGE:
@@ -76,6 +77,7 @@ export default {
       'Zusätzlich anfallende Arbeiten werden zu einem Stundensatz von {{netUnitSalesPrice}}€ (Netto) verrechnet.',
     PROJECTS: 'Projekte: {{projects}}',
     PROJECT: 'Projekt: {{projects}}',
+    PROJECT_HEADER: 'Projekt',
     // TEMPLATES
     DRAFTINVOICE_SUBJECT: 'Rechnungsentwurf von {{company name}}',
     DRAFTINVOICE_MESSAGE:
