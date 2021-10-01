@@ -1,18 +1,18 @@
 import { Locale } from 'src/translations';
 import {
   ATTACH_TIMESHEET,
+  BILL_PER_PROJECT,
   BOOK,
   COMPANY,
   FLAGS,
   LANG,
-  LIST_BY_DATES,
   MAIL,
-  SKU,
+  SKU
 } from './constants';
 
 export type CompanyId = 'jr' | 'default';
 
-const flags = [LIST_BY_DATES, ATTACH_TIMESHEET, MAIL, BOOK] as const;
+const flags = [ATTACH_TIMESHEET, BILL_PER_PROJECT, MAIL, BOOK] as const;
 export interface CustomerMeta {
   [SKU]: string;
   [LANG]?: Locale;

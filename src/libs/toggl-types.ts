@@ -11,6 +11,7 @@ export interface ProjectTimeEntries {
   timeEntries: EnrichedTimeEntry[];
   days: Day[];
 }
+
 export interface ClientTimeEntries {
   customer: Customer;
   totalSecondsSpent: number;

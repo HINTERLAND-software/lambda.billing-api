@@ -2,7 +2,7 @@ import FormData from 'form-data';
 import nodeFetch from 'node-fetch';
 import * as qs from 'querystring';
 import { Locale } from 'src/translations';
-import { ATTACH_TIMESHEET, LIST_BY_DATES } from './constants';
+import { ATTACH_TIMESHEET, BILL_PER_PROJECT } from './constants';
 import { createCsv, csvToHtml, htmlToPdf } from './csv';
 import {
   Attachment,
@@ -21,13 +21,18 @@ import {
   Product,
   Settings
 } from './debitoor-types';
-import { formatDateForInvoice, getRoundedHours, sortByDate } from './time';
-import { ClientTimeEntries, EnrichedTimeEntry, TimeEntry } from './toggl-types';
+import { formatDateForInvoice, getRoundedHours } from './time';
+import {
+  ClientTimeEntries,
+  EnrichedTimeEntry,
+  ProjectTimeEntries
+} from './toggl-types';
 import {
   Cache,
   Config,
   download,
   initFetch,
+  isClientTimeEntries,
   Logger,
   translate,
   uniquify
@@ -282,54 +287,27 @@ export const fetchAllCustomerData = async (
     {} as Promise<CustomerDataMapping>
   );
 
-const getDescriptionByProjects = (
-  timeEntries: TimeEntry[] = [],
-  locale: Locale
-): string => {
-  const reduced = timeEntries.reduce((acc, { description, stop }) => {
-    return {
-      ...acc,
-      [description]: [...(acc[description] || []), stop].sort(sortByDate),
-    };
-  }, {} as { [description: string]: string[] });
-
-  return Object.entries(reduced)
-    .sort(([, [a]], [, [b]]) => sortByDate(a, b))
-    .map(([description, dates]) => {
-      const joinedDates = uniquify(
-        dates.map((date) => formatDateForInvoice(date, locale))
-      ).join(', ');
-      return `  - ${description} (${joinedDates})`;
-    })
-    .join('\n');
-};
-
 const getDescriptionByDates = (
   timeEntries: EnrichedTimeEntry[] = [],
-  locale: Locale
+  locale: Locale,
+  shouldBeBilledByProject: boolean
 ): string => {
-  const timeEntriesByProject = timeEntries.reduce(
-    (acc, timeEntry) => ({
-      ...acc,
-      [timeEntry.project.name]: [
-        ...(acc[timeEntry.project.name] || []),
-        timeEntry,
-      ],
-    }),
-    {} as Record<string, EnrichedTimeEntry[]>
-  );
+  const timeEntriesByProject = getTimeEntriesByProject(timeEntries);
 
   return Object.entries(timeEntriesByProject)
     .map(([project, timeEntries]) => {
       return [
-        translate(locale, 'PROJECT', {
-          projects: project,
-        }),
-        '',
+        !shouldBeBilledByProject &&
+          translate(locale, 'PROJECT', {
+            projects: project,
+          }),
+        !shouldBeBilledByProject && ' ',
         ...uniquify(timeEntries.map(({ description }) => description))
           .sort()
           .map((d) => `     - ${d}`),
-      ].join('\n');
+      ]
+        .filter(Boolean)
+        .join('\n');
     })
     .join('\n\n');
 };
@@ -341,44 +319,40 @@ const languageCodes = {
 
 export const generateInvoiceTemplate = (
   customerData: CustomerData,
-  customerTimeEntries: ClientTimeEntries,
+  customerTimeEntries: ClientTimeEntries | ProjectTimeEntries,
   config: Config
 ): DraftInvoiceRequest => {
   const { product, customer, meta } = customerData;
   const { time } = config;
+  const shouldBeBilledByProject = meta.flags?.includes(BILL_PER_PROJECT);
 
-  const lines: Line[] = meta.flags?.includes(LIST_BY_DATES)
-    ? customerTimeEntries.days.map(
-        ({ start, timeEntries, totalSecondsSpent }) => ({
-          productId: product.id,
-          taxEnabled: product.taxEnabled,
-          taxRate: product.rate,
-          unitId: product.unitId,
-          unitNetPrice: product.netUnitSalesPrice,
-          quantity: getRoundedHours(totalSecondsSpent) || 0,
-          productName: formatDateForInvoice(start, meta.lang),
-          description: getDescriptionByDates(timeEntries, meta.lang),
-        })
-      )
-    : customerTimeEntries.projects.map(
-        ({ project, totalSecondsSpent, timeEntries }) => ({
-          productId: product.id,
-          taxEnabled: product.taxEnabled,
-          taxRate: product.rate,
-          unitId: product.unitId,
-          unitNetPrice: product.netUnitSalesPrice,
-          quantity: getRoundedHours(totalSecondsSpent) || 0,
-          productName: project.name,
-          description: getDescriptionByProjects(timeEntries, meta.lang),
-        })
-      );
+  const lines: Line[] = customerTimeEntries.days.map(
+    ({ start, timeEntries, totalSecondsSpent }) => ({
+      productId: product.id,
+      taxEnabled: product.taxEnabled,
+      taxRate: product.rate,
+      unitId: product.unitId,
+      unitNetPrice: product.netUnitSalesPrice,
+      quantity: getRoundedHours(totalSecondsSpent) || 0,
+      productName: formatDateForInvoice(start, meta.lang),
+      description: getDescriptionByDates(
+        timeEntries,
+        meta.lang,
+        shouldBeBilledByProject
+      ),
+    })
+  );
 
   const notes = [
     translate(meta.lang, 'PERFORMANCE_PERIOD', {
       from: formatDateForInvoice(time.startOfMonthFormatted, meta.lang),
       to: formatDateForInvoice(time.endOfMonthFormatted, meta.lang),
     }),
-    
+    shouldBeBilledByProject && ' ',
+    shouldBeBilledByProject &&
+      translate(meta.lang, 'PROJECT', {
+        projects: (customerTimeEntries as ProjectTimeEntries).project.name,
+      }),
   ]
     .filter(Boolean)
     .join('\n');
@@ -405,78 +379,90 @@ export const generateInvoiceTemplate = (
 export type CreateDraftInvoicesResponse = {
   response?: DraftInvoiceResponse;
   customerData?: CustomerData;
-  customerTimeEntries: ClientTimeEntries;
+  customerTimeEntries: ClientTimeEntries | ProjectTimeEntries;
   error?: Error;
 };
 
-export const createDraftInvoices = (
+export const createDraftInvoices = async (
   customersTimeEntries: ClientTimeEntries[],
   config: Config,
   customerDataMapping: CustomerDataMapping,
   globalMeta: GlobalMeta
 ): Promise<CreateDraftInvoicesResponse[]> => {
-  return Promise.all(
-    customersTimeEntries.map(async (customerTimeEntries) => {
-      try {
-        const customerData =
-          customerDataMapping[customerTimeEntries.customer.name];
-        if (!customerData)
-          throw new Error(
-            `No customer found for ${customerTimeEntries.customer.name}`
-          );
+  const batchedCustomersTimeEntries: (
+    | ProjectTimeEntries
+    | ClientTimeEntries
+  )[] = customersTimeEntries.reduce((acc, customerTimeEntries) => {
+    const customerData = getCustomerData(
+      customerDataMapping,
+      customerTimeEntries
+    );
+    if (customerData.meta?.flags?.includes(BILL_PER_PROJECT)) {
+      return [...acc, ...customerTimeEntries.projects];
+    }
+    return [...acc, customerTimeEntries];
+  }, []);
 
-        const request = generateInvoiceTemplate(
-          customerData,
-          customerTimeEntries,
-          config
+  const payload: CreateDraftInvoicesResponse[] = [];
+  for (const customerTimeEntries of batchedCustomersTimeEntries) {
+    try {
+      const customerData = getCustomerData(
+        customerDataMapping,
+        customerTimeEntries
+      );
+
+      const request = generateInvoiceTemplate(
+        customerData,
+        customerTimeEntries,
+        config
+      );
+
+      if (customerData.meta?.flags?.includes(ATTACH_TIMESHEET)) {
+        const csvs = createCsv(
+          [customerTimeEntries],
+          customerDataMapping,
+          config,
+          globalMeta
         );
 
-        if (customerData.meta?.flags?.includes(ATTACH_TIMESHEET)) {
-          const csvs = createCsv(
-            [customerTimeEntries],
-            customerDataMapping,
-            config,
-            globalMeta
-          );
-
-          request.attachments = await Promise.all(
-            csvs.map(({ csv, name }) => {
-              const matches = name.match(/\b(\w)/g); // ['J','S','O','N']
-              const fileName = [
-                matches.join(''),
-                formatDateForInvoice(
-                  config.time.startOfMonthFormatted,
-                  customerData.meta.lang
-                ),
-                formatDateForInvoice(
-                  config.time.endOfMonthFormatted,
-                  customerData.meta.lang
-                ),
-              ].join('_');
-              return generateAttachment(csv, fileName);
-            })
-          );
-        }
-
-        const response = await createDraftInvoice(request);
-        if (!response) {
-          Logger.error(request);
-          throw new Error('No response');
-        }
-        return {
-          response,
-          customerTimeEntries,
-          customerData,
-        };
-      } catch (error) {
-        Logger.warn(error);
-        return {
-          customerTimeEntries,
-          error,
-        };
+        request.attachments = await Promise.all(
+          csvs.map(({ csv, name }) => {
+            const matches = name.match(/\b(\w)/g); // ['J','S','O','N']
+            const fileName = [
+              matches.join(''),
+              formatDateForInvoice(
+                config.time.startOfMonthFormatted,
+                customerData.meta.lang
+              ),
+              formatDateForInvoice(
+                config.time.endOfMonthFormatted,
+                customerData.meta.lang
+              ),
+            ].join('_');
+            return generateAttachment(csv, fileName);
+          })
+        );
       }
-    })
-  );
+
+      const response = await createDraftInvoice(request);
+      if (!response) {
+        Logger.error(request);
+        throw new Error('No response');
+      }
+      payload.push({
+        response,
+        customerTimeEntries,
+        customerData,
+      });
+    } catch (error) {
+      Logger.warn(error);
+      payload.push({
+        customerTimeEntries,
+        error,
+      });
+    }
+  }
+  return payload;
 };
 
 export const generateAttachment = async (
@@ -487,4 +473,32 @@ export const generateAttachment = async (
   const buffer = await htmlToPdf(html);
   const file: File = await createFile(buffer, name);
   return { fileId: file.id };
+};
+
+export const getTimeEntriesByProject = (
+  timeEntries: EnrichedTimeEntry[]
+): Record<string, EnrichedTimeEntry[]> => {
+  return timeEntries.reduce(
+    (acc2, timeEntry) => ({
+      ...acc2,
+      [timeEntry.project.name]: [
+        ...(acc2[timeEntry.project.name] || []),
+        timeEntry,
+      ],
+    }),
+    {}
+  );
+};
+
+const getCustomerData = (
+  customerDataMapping: CustomerDataMapping,
+  customerTimeEntries: ClientTimeEntries | ProjectTimeEntries
+): CustomerData | never => {
+  const customer = isClientTimeEntries(customerTimeEntries)
+    ? customerTimeEntries.customer
+    : customerTimeEntries.project.customer;
+
+  const customerData = customerDataMapping[customer.name];
+  if (!customerData) throw new Error(`No customer found for ${customer.name}`);
+  return customerData;
 };
