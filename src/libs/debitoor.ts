@@ -308,16 +308,30 @@ const getDescriptionByDates = (
   timeEntries: EnrichedTimeEntry[] = [],
   locale: Locale
 ): string => {
-  const projects = uniquify(timeEntries.map(({ project }) => project.name));
-  return [
-    translate(locale, projects.length > 1 ? 'PROJECTS' : 'PROJECT', {
-      projects: projects.join(', '),
+  const timeEntriesByProject = timeEntries.reduce(
+    (acc, timeEntry) => ({
+      ...acc,
+      [timeEntry.project.name]: [
+        ...(acc[timeEntry.project.name] || []),
+        timeEntry,
+      ],
     }),
-    '',
-    ...uniquify(timeEntries.map(({ description }) => description))
-      .sort()
-      .map((d) => `     - ${d}`),
-  ].join('\n');
+    {} as Record<string, EnrichedTimeEntry[]>
+  );
+
+  return Object.entries(timeEntriesByProject)
+    .map(([project, timeEntries]) => {
+      return [
+        translate(locale, 'PROJECT', {
+          projects: project,
+        }),
+        '',
+        ...uniquify(timeEntries.map(({ description }) => description))
+          .sort()
+          .map((d) => `     - ${d}`),
+      ].join('\n');
+    })
+    .join('\n\n');
 };
 
 const languageCodes = {
@@ -359,10 +373,15 @@ export const generateInvoiceTemplate = (
         })
       );
 
-  const notes = translate(meta.lang, 'PERFORMANCE_PERIOD', {
-    from: formatDateForInvoice(time.startOfMonthFormatted, meta.lang),
-    to: formatDateForInvoice(time.endOfMonthFormatted, meta.lang),
-  });
+  const notes = [
+    translate(meta.lang, 'PERFORMANCE_PERIOD', {
+      from: formatDateForInvoice(time.startOfMonthFormatted, meta.lang),
+      to: formatDateForInvoice(time.endOfMonthFormatted, meta.lang),
+    }),
+    
+  ]
+    .filter(Boolean)
+    .join('\n');
   const additionalNotes = translate(meta.lang, 'ADDITIONAL_NOTES', {
     netUnitSalesPrice: product.netUnitSalesPrice,
   });
