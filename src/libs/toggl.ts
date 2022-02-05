@@ -290,21 +290,33 @@ export async function updateTogglClients() {
   const customers = await fetchCustomers();
 
   for (const customer of customers) {
-    const found = togglClients.find(
+    const togglClient = togglClients.find(
       ({ name, notes }) =>
         notes === customer.sys.id || customer.fields.name === name
     );
-    await sleep(1000);
-    await fetch(`${BASE_URL}/${CLIENT_PATH}${found ? `/${found.id}` : ''}`, {
-      method: found ? 'PUT' : 'POST',
-      body: JSON.stringify({
-        client: {
-          name: customer.fields.name,
-          wid: WORKSPACE_ID,
-          notes: customer.sys.id,
-        },
-      }),
-    });
+
+    const payload = {
+      name: customer.fields.name,
+      wid: WORKSPACE_ID,
+      notes: customer.sys.id,
+    };
+    if (
+      !togglClient ||
+      togglClient?.name !== payload.name ||
+      togglClient?.wid !== payload.wid ||
+      togglClient?.notes !== payload.notes
+    ) {
+      await sleep(1000);
+      await fetch(
+        `${BASE_URL}/${CLIENT_PATH}${togglClient ? `/${togglClient.id}` : ''}`,
+        {
+          method: togglClient ? 'PUT' : 'POST',
+          body: JSON.stringify({
+            client: payload,
+          }),
+        }
+      );
+    }
   }
 }
 
@@ -322,20 +334,31 @@ export async function updateTogglProjects() {
     const togglProject = togglProjects.find(
       ({ name, cid }) => cid === togglClient.id && project.fields.name === name
     );
-    await sleep(1000);
-    await fetch(
-      `${BASE_URL}/${PROJECT_PATH}${togglProject ? `/${togglProject.id}` : ''}`,
-      {
-        method: togglProject ? 'PUT' : 'POST',
-        body: JSON.stringify({
-          project: {
-            name: project.fields.name,
-            wid: togglClient.wid,
-            cid: togglClient.id,
-            is_private: true,
-          },
-        }),
-      }
-    );
+    const payload = {
+      name: project.fields.name,
+      wid: togglClient.wid,
+      cid: togglClient.id,
+      is_private: true,
+    };
+    if (
+      !togglProject ||
+      togglProject?.name !== payload.name ||
+      togglProject?.wid !== payload.wid ||
+      togglProject?.cid !== payload.cid ||
+      togglProject?.is_private !== payload.is_private
+    ) {
+      await sleep(1000);
+      await fetch(
+        `${BASE_URL}/${PROJECT_PATH}${
+          togglProject ? `/${togglProject.id}` : ''
+        }`,
+        {
+          method: togglProject ? 'PUT' : 'POST',
+          body: JSON.stringify({
+            project: payload,
+          }),
+        }
+      );
+    }
   }
 }
