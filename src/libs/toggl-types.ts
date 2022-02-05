@@ -1,3 +1,5 @@
+import { EnrichedCustomer, EnrichedProject } from './types';
+
 export interface Day {
   start: string;
   stop: string;
@@ -6,6 +8,7 @@ export interface Day {
 }
 
 export interface ProjectTimeEntries {
+  customer: EnrichedCustomer;
   project: EnrichedProject;
   totalSecondsSpent: number;
   timeEntries: EnrichedTimeEntry[];
@@ -13,7 +16,8 @@ export interface ProjectTimeEntries {
 }
 
 export interface ClientTimeEntries {
-  customer: Customer;
+  customer: EnrichedCustomer;
+  project: EnrichedProject;
   totalSecondsSpent: number;
   timeEntries: EnrichedTimeEntry[];
   days: Day[];
@@ -22,6 +26,7 @@ export interface ClientTimeEntries {
 
 export interface EnrichedTimeEntry extends TimeEntry {
   project: EnrichedProject;
+  customer: EnrichedCustomer;
 }
 export interface TimeEntry {
   id: number;
@@ -37,10 +42,6 @@ export interface TimeEntry {
   duronly: boolean;
   at: string;
   uid: number;
-}
-
-export interface EnrichedProject extends Project {
-  customer: Customer;
 }
 
 export interface Project {
@@ -61,4 +62,5 @@ export interface Customer {
   wid: number;
   name: string;
   at: string;
+  notes?: string;
 }

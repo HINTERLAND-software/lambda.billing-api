@@ -1,5 +1,5 @@
 import moment from 'moment';
-import { Locale } from 'src/translations';
+import { Locale } from './types';
 
 export const formats = {
   de: 'DD.MM.YYYY',

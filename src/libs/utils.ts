@@ -1,9 +1,11 @@
+import { Entry } from 'contentful';
 import type { FromSchema } from 'json-schema-to-ts';
 import nodeFetch, { RequestInit } from 'node-fetch';
 import schema from 'src/functions/schema';
-import translations, { Locale } from '../translations';
+import { ContentfulResource, fetchResources } from './contentful';
 import { getLastMonth, Time } from './time';
 import { ClientTimeEntries, ProjectTimeEntries } from './toggl-types';
+import { Locale } from './types';
 
 export const getEnvironment = (): string => {
   const { STAGE, NODE_ENV = 'development' } = process.env;
@@ -30,11 +32,18 @@ export class Logger {
 export const wait = (ms: number) =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
-export const initFetch = (authorization: string) => async (
+export const FetchCache = new Map();
+export const ContentfulCache = new Map();
+export function clearCaches() {
+  FetchCache.clear();
+  ContentfulCache.clear();
+}
+
+export const initFetch = (authorization: string) => async <T>(
   url: string,
   options: RequestInit = {},
   jsonResponse = true
-): Promise<any> => {
+): Promise<T> => {
   options.method = options.method || 'GET';
 
   options.headers = {
@@ -46,12 +55,17 @@ export const initFetch = (authorization: string) => async (
       options.headers['Content-type'] || 'application/json';
   }
 
+  const cacheKey = JSON.stringify({ url, options });
+  if (FetchCache.has(cacheKey)) {
+    return FetchCache.get(cacheKey);
+  }
   const response = await nodeFetch(url, options);
   try {
     const res = await (jsonResponse ? response.json() : response.text());
     if (res['errors'] || (res['message'] && res['code']))
       return Promise.reject({ ...res, url });
 
+    FetchCache.set(cacheKey, res);
     return res;
   } catch (error) {
     Logger.error(error);
@@ -61,31 +75,11 @@ export const initFetch = (authorization: string) => async (
   }
 };
 export const download = async (url: string): Promise<NodeJS.ReadableStream> => {
-  const response = await nodeFetch(url);
+  const response = await nodeFetch(url.replace(/^\/\//, 'https://'));
   if (!response.ok)
     throw new Error(`unexpected response ${response.statusText}`);
   return response.body;
 };
-
-let caches = {};
-export const clearCaches = () => (caches = {});
-export class Cache<T> {
-  constructor(private id: string, private defaultValues: T = null) {
-    caches[this.id] = this.defaultValues;
-  }
-  clear(): void {
-    caches[this.id] = this.defaultValues;
-  }
-  get(): T {
-    return caches[this.id];
-  }
-  set(value: T): void {
-    caches[this.id] = value;
-  }
-  assign(value: T): void {
-    caches[this.id] = { ...caches[this.id], ...value };
-  }
-}
 
 export const uniquify = <T>(arr: T[]): T[] => [...new Set(arr)];
 
@@ -131,40 +125,37 @@ export const getConfig = <T extends EventBody>(
   };
 };
 
-export type TranslationKey = keyof typeof translations.de;
 export type Replacements = Record<string, string | number>;
 
-export const initTranslate = (locale?: Locale) => (
-  key: TranslationKey,
-  replacements?: Replacements
-) => translate(locale, key, replacements);
+export async function initTranslate(locale: Locale = 'de') {
+  const translations = await fetchResources(
+    locale === 'de' ? 'de-DE' : 'en-US'
+  );
+  if (!translations?.length) {
+    throw new Error(`Translation locale "${locale}" not found`);
+  }
+  return function (key: string, replacements?: Replacements) {
+    return translate(translations, key, replacements);
+  };
+}
 
-export const translate = (
-  locale: Locale = 'de',
-  key: TranslationKey,
+const translate = (
+  translations: Entry<ContentfulResource>[],
+  key: string,
   replacements: Replacements = {}
 ): string => {
-  if (!translations[locale]) {
-    throw new Error(
-      `Translation locale "${locale}" not found, must be one of ${Object.keys(
-        translations
-      ).join(', ')}`
-    );
-  }
-  const [, translation] = Object.entries(translations[locale]).find(
-    ([translationKey]) => translationKey === key
-  );
+  const translation = translations.find(({ fields }) => fields.key === key);
   if (!translation) {
     throw new Error(
-      `Translation key "${key}" not found, must be one of ${Object.keys(
-        translations[locale]
-      ).join(', ')}`
+      `Translation key "${key}" not found, must be one of ${translations
+        .map(({ fields }) => fields.key)
+        .join(', ')}`
     );
   }
   return Object.entries(replacements).reduce(
     (acc, [key, value]) =>
       acc.replace(new RegExp(`{{${key}}}`, 'g'), `${value}`),
-    translation
+    translation.fields.value
   );
 };
 

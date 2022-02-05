@@ -3,7 +3,6 @@ import {
   ValidatedEventAPIGatewayProxyEvent
 } from '@libs/apiGateway';
 import { createCsv } from '@libs/csv';
-import { fetchAllCustomerData, fetchGlobalMeta } from '@libs/debitoor';
 import { middyfy } from '@libs/lambda';
 import {
   bulkAddBilledTag,
@@ -21,7 +20,6 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
   event
 ) => {
   try {
-    const globalMeta = await fetchGlobalMeta();
     const fullConfig = getConfig(event.body, (event as any).usePreviousMonth);
     const { time, ...config } = fullConfig;
     const {
@@ -52,13 +50,7 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
       customerBlacklist
     );
 
-    const customerData = await fetchAllCustomerData(customerTimeEntries);
-    const csvs = createCsv(
-      customerTimeEntries,
-      customerData,
-      fullConfig,
-      globalMeta
-    );
+    const csvs = await createCsv(customerTimeEntries, fullConfig);
     if (setBilled) {
       await bulkAddBilledTag(sanitizedTimeEntries);
     }
@@ -69,7 +61,6 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
       {
         config,
         csv: csvs,
-        customerData,
         customerTimeEntries: dryRun ? customerTimeEntries : null,
       }
     );

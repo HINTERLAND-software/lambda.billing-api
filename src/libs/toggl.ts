@@ -1,31 +1,29 @@
 import moment from 'moment';
 import * as qs from 'querystring';
 import { LABEL_BILLED } from './constants';
+import { fetchCustomers, fetchProjects } from './contentful';
+import {
+  fetchDebitoorCustomerByReference,
+  fetchDebitoorProductByReference
+} from './debitoor';
 import { sortByDate } from './time';
 import {
   ClientTimeEntries,
   Customer,
   Day,
-  EnrichedProject,
   EnrichedTimeEntry,
   Project,
   TimeEntry
 } from './toggl-types';
-import { Cache, initFetch, Logger } from './utils';
+import { EnrichedCustomer, EnrichedProject } from './types';
+import { initFetch, Logger } from './utils';
 
 const BASE_URL = 'https://api.track.toggl.com/api/v8';
 const TIME_ENTRIES_PATH = 'time_entries';
 const PROJECT_PATH = 'projects';
+const WORKSPACE_PATH = 'workspaces';
 const CLIENT_PATH = 'clients';
-
-const customerCache = new Cache<{ [customerId: number]: Customer }>(
-  'toggl.customers',
-  {}
-);
-const projectCache = new Cache<{ [projectId: string]: Project }>(
-  'toggl.projects',
-  {}
-);
+const WORKSPACE_ID = 1165756;
 
 const fetch = initFetch(
   `Basic ${Buffer.from(`${process.env.TOGGL_API_TOKEN}:api_token`).toString(
@@ -41,7 +39,9 @@ export const fetchTimeEntriesBetween = async (
     start_date: start,
     end_date: end,
   });
-  const result = await fetch(`${BASE_URL}/${TIME_ENTRIES_PATH}?${querystring}`);
+  const result = await fetch<TimeEntry[]>(
+    `${BASE_URL}/${TIME_ENTRIES_PATH}?${querystring}`
+  );
   return result;
 };
 
@@ -53,9 +53,9 @@ export const filterClientTimeEntriesByCustomer = (
   return ClientTimeEntries.filter(
     ({ customer }) =>
       (!customerWhitelist?.length ||
-        customerWhitelist.includes(customer.name)) &&
+        customerWhitelist.includes(customer.contentful.name)) &&
       (!customerBlacklist?.length ||
-        !customerBlacklist?.includes(customer.name))
+        !customerBlacklist?.includes(customer.contentful.name))
   );
 };
 
@@ -95,22 +95,18 @@ export const sanitizeTimeEntries = (timeEntries: TimeEntry[]): TimeEntry[] =>
   );
 
 export const fetchProject = async (projectId: string): Promise<Project> => {
-  const cachedProject = projectCache.get()?.[projectId];
-  if (cachedProject) return cachedProject;
-
-  const result = await fetch(`${BASE_URL}/${PROJECT_PATH}/${projectId}`);
+  const result = await fetch<{ data: Project }>(
+    `${BASE_URL}/${PROJECT_PATH}/${projectId}`
+  );
   const project = result?.data;
-  projectCache.assign({ [projectId]: project });
   return project;
 };
 
 export const fetchClient = async (customerId: number): Promise<Customer> => {
-  const cachedClient = customerCache.get()?.[customerId];
-  if (cachedClient) return cachedClient;
-
-  const result = await fetch(`${BASE_URL}/${CLIENT_PATH}/${customerId}`);
+  const result = await fetch<{ data: Customer }>(
+    `${BASE_URL}/${CLIENT_PATH}/${customerId}`
+  );
   const customer = result?.data;
-  customerCache.assign({ [customerId]: customer });
   return customer;
 };
 
@@ -160,11 +156,13 @@ const getTimeEntriesByDay = (timeEntries: EnrichedTimeEntry[]): Day[] => {
 
 interface Grouped {
   [customerId: string]: {
-    customer: Customer;
+    customer: EnrichedCustomer;
+    project: EnrichedProject;
     totalSecondsSpent: number;
     timeEntries: EnrichedTimeEntry[];
     timeEntriesGroupedByProject: {
       [projectId: string]: {
+        customer: EnrichedCustomer;
         project: EnrichedProject;
         totalSecondsSpent: number;
         timeEntries: EnrichedTimeEntry[];
@@ -177,13 +175,63 @@ export const enrichTimeEntries = async (
   billableTimeEntries: TimeEntry[]
 ): Promise<ClientTimeEntries[]> => {
   const customers: Grouped = {};
-  for (let i = 0; i < billableTimeEntries.length; i++) {
-    const timeEntry = billableTimeEntries[i];
+  for (const timeEntry of billableTimeEntries) {
     const { duration, pid } = timeEntry;
-    const project = await fetchProject(pid);
-    const customer = await fetchClient(project.cid);
 
-    const previousClient = customers[customer.id];
+    const togglProject = await fetchProject(pid);
+    const togglCustomer = await fetchClient(togglProject.cid);
+
+    const contentfulCustomers = await fetchCustomers();
+    const contentfulCustomer = contentfulCustomers.find(
+      ({ fields }) => togglCustomer.name === fields.name
+    );
+
+    if (!contentfulCustomer)
+      throw new Error(`No contentful customer found for ${togglCustomer.name}`);
+
+    const contentfulProjects = await fetchProjects();
+    const contentfulProject = contentfulProjects.find(
+      ({ fields }) => togglProject.name === fields.name
+    );
+
+    if (!contentfulProject)
+      throw new Error(`No contentful project found for ${togglProject.name}`);
+
+    const debitoorCustomer = await fetchDebitoorCustomerByReference(
+      contentfulCustomer.sys.id
+    );
+
+    if (!debitoorCustomer)
+      throw new Error(
+        `No debitoor customer found for ${contentfulProject.fields.name}`
+      );
+
+    const debitoorProduct = await fetchDebitoorProductByReference(
+      contentfulProject.fields.product.sys.id
+    );
+
+    if (!debitoorProduct)
+      throw new Error(
+        `No debitoor product found for ${contentfulProject.fields.product.fields.name}`
+      );
+
+    const customer: EnrichedCustomer = {
+      toggl: togglCustomer,
+      contentful: contentfulCustomer.fields,
+      debitoor: debitoorCustomer,
+    };
+
+    const project: EnrichedProject = {
+      toggl: togglProject,
+      contentful: contentfulProject.fields,
+      customer,
+      product: {
+        contentful: contentfulProject.fields.product.fields,
+        debitoor: debitoorProduct,
+      },
+    };
+
+    const previousClient = customers[togglCustomer.id];
     const previousTimeEntriesGroupedByProject =
       previousClient?.timeEntriesGroupedByProject || {};
     const previousTimeEntries = previousClient?.timeEntries || [];
@@ -194,18 +242,23 @@ export const enrichTimeEntries = async (
       timeEntries: projectTimeEntries = [],
     } = previousTimeEntriesGroupedByProject[pid] || {};
 
-    const enrichedProject = { ...project, customer };
-    const enrichedTimeEntry = { ...timeEntry, project: enrichedProject };
+    const enrichedTimeEntry = {
+      ...timeEntry,
+      project,
+      customer,
+    };
 
-    customers[customer.id] = {
+    customers[togglCustomer.id] = {
       ...(previousClient || {}),
       customer,
+      project,
       totalSecondsSpent: previousTotalSecondsSpent + duration,
       timeEntries: [...previousTimeEntries, enrichedTimeEntry].sort(sortByDate),
       timeEntriesGroupedByProject: {
         ...previousTimeEntriesGroupedByProject,
         [pid]: {
-          project: enrichedProject,
+          project,
+          customer,
           totalSecondsSpent: projectTotalSecondsSpent + duration,
           timeEntries: [...projectTimeEntries, enrichedTimeEntry].sort(
             sortByDate
@@ -228,3 +281,55 @@ export const enrichTimeEntries = async (
     }
   );
 };
+
+export async function updateTogglClients() {
+  const togglClients = await fetch<Customer[]>(`${BASE_URL}/${CLIENT_PATH}`);
+  const customers = await fetchCustomers();
+
+  for (const customer of customers) {
+    const found = togglClients.find(
+      ({ name, notes }) =>
+        notes === customer.sys.id || customer.fields.name === name
+    );
+    await fetch(`${BASE_URL}/${CLIENT_PATH}${found ? `/${found.id}` : ''}`, {
+      method: found ? 'PUT' : 'POST',
+      body: JSON.stringify({
+        client: {
+          name: customer.fields.name,
+          wid: WORKSPACE_ID,
+          notes: customer.sys.id,
+        },
+      }),
+    });
+  }
+}
+
+export async function updateTogglProjects() {
+  const togglClients = await fetch<Customer[]>(`${BASE_URL}/${CLIENT_PATH}`);
+  const togglProjects = await fetch<Project[]>(
+    `${BASE_URL}/${WORKSPACE_PATH}/${WORKSPACE_ID}/${PROJECT_PATH}`
+  );
+  const projects = await fetchProjects();
+  for (const project of projects) {
+    const togglClient = togglClients.find(
+      ({ notes }) => notes === project.fields.customer.sys.id
+    );
+    const togglProject = togglProjects.find(
+      ({ name, cid }) => cid === togglClient.id && project.fields.name === name
+    );
+    await fetch(
+      `${BASE_URL}/${PROJECT_PATH}${togglProject ? `/${togglProject.id}` : ''}`,
+      {
+        method: togglProject ? 'PUT' : 'POST',
+        body: JSON.stringify({
+          project: {
+            name: project.fields.name,
+            wid: togglClient.wid,
+            cid: togglClient.id,
+            is_private: true,
+          },
+        }),
+      }
+    );
+  }
+}
