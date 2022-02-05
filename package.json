@@ -43,10 +43,13 @@
     "webpack-node-externals": "^2.5.2"
   },
   "dependencies": {
+    "@contentful/rich-text-plain-text-renderer": "^15.11.1",
     "@middy/core": "^1.5.0",
     "@middy/http-json-body-parser": "^1.5.0",
     "aws-sdk": "^2.824.0",
     "chrome-aws-lambda": "^10.0.0",
+    "contentful": "^9.0.3",
+    "contentful-management": "^7.42.0",
     "form-data": "^4.0.0",
     "moment": "^2.29.1",
     "node-fetch": "^2.6.1",

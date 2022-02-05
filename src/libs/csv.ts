@@ -1,15 +1,9 @@
 import Chromium from 'chrome-aws-lambda';
 import moment from 'moment';
 import { Browser } from 'puppeteer-core';
-import { CustomerDataMapping, GlobalMeta } from './debitoor-types';
 import { formatDateForInvoice } from './time';
 import { ClientTimeEntries, ProjectTimeEntries } from './toggl-types';
-import {
-  Config,
-  initTranslate,
-  isClientTimeEntries,
-  uniquify
-} from './utils';
+import { Config, initTranslate, isClientTimeEntries, uniquify } from './utils';
 
 const delimiter = ',';
 const wrap = (str: unknown) => `"${str}"`;
@@ -27,11 +21,9 @@ const formatSeconds = (seconds: number) => {
   ].join(':');
 };
 
-export const createCsv = (
+export const createCsv = async (
   customerTimeEntries: (ClientTimeEntries | ProjectTimeEntries)[],
-  customerDataMapping: CustomerDataMapping,
-  config: Config,
-  globalMeta: GlobalMeta
+  config: Config
 ) => {
   const header = [
     'DATE',
@@ -44,90 +36,105 @@ export const createCsv = (
     'TOTAL_TIME_WORKED',
   ] as const;
 
-  return customerTimeEntries.map((timeEntries) => {
-    const { days, totalSecondsSpent } = timeEntries;
-    const customer = isClientTimeEntries(timeEntries)
-      ? timeEntries.customer
-      : timeEntries.project.customer;
+  return Promise.all(
+    customerTimeEntries.map(async (timeEntries) => {
+      const { days, totalSecondsSpent, project } = timeEntries;
+      const customer = isClientTimeEntries(timeEntries)
+        ? timeEntries.customer
+        : timeEntries.project.customer;
 
-    const customerData = customerDataMapping[customer.name];
-    if (!customerData)
-      throw new Error(`No customer found for ${customer.name}`);
-    const { meta } = customerData;
-    const t = initTranslate(meta.lang);
-    const company = globalMeta.companies[meta.company || 'default'];
+      const translate = await initTranslate(customer.contentful.language);
+      const company = project.contentful.company;
 
-    return {
-      name: customer.name,
-      csv: [
-        mapWrapJoin(t('TIMESHEET')),
-        mapWrapJoin(t('CLIENT'), customer.name),
-        mapWrapJoin(
-          t('FROM'),
-          formatDateForInvoice(config.time.startOfMonthFormatted, meta.lang)
-        ),
-        mapWrapJoin(
-          t('TO'),
-          formatDateForInvoice(config.time.endOfMonthFormatted, meta.lang)
-        ),
-        mapWrapJoin(t('PROVIDER'), `${company.name} (${company.email})`),
-        mapWrapJoin(t('SERVICE_LEVEL'), t('SERVICE_LEVEL_DEFAULT')),
-        '',
-        mapWrapJoin(...header.map((h) => t(h))),
-        ...days
-          .map(
-            ({
-              timeEntries,
-              start,
-              stop,
-              totalSecondsSpent: activeSeconds,
-            }) => {
-              const description = uniquify(
-                timeEntries.map(({ description }) => description)
-              )
-                .sort()
-                .join(', ');
+      return {
+        name: customer.contentful.name,
+        csv: [
+          mapWrapJoin(translate('TIMESHEET')),
+          mapWrapJoin(translate('CLIENT'), customer.contentful.name),
+          mapWrapJoin(
+            translate('FROM'),
+            formatDateForInvoice(
+              config.time.startOfMonthFormatted,
+              customer.contentful.language
+            )
+          ),
+          mapWrapJoin(
+            translate('TO'),
+            formatDateForInvoice(
+              config.time.endOfMonthFormatted,
+              customer.contentful.language
+            )
+          ),
+          mapWrapJoin(
+            translate('PROVIDER'),
+            `${company.fields.name} (${company.fields.email})`
+          ),
+          mapWrapJoin(
+            translate('SERVICE_LEVEL'),
+            translate('SERVICE_LEVEL_DEFAULT')
+          ),
+          '',
+          mapWrapJoin(...header.map((h) => translate(h))),
+          ...days
+            .map(
+              ({
+                timeEntries,
+                start,
+                stop,
+                totalSecondsSpent: activeSeconds,
+              }) => {
+                const description = uniquify(
+                  timeEntries.map(({ description }) => description)
+                )
+                  .sort()
+                  .join(', ');
 
-              const startDate = moment(start);
-              const endDate = moment(stop);
-              const totalSeconds = moment
-                .duration(endDate.diff(startDate))
-                .asSeconds();
-              const pauseSeconds = totalSeconds - activeSeconds;
+                const startDate = moment(start);
+                const endDate = moment(stop);
+                const totalSeconds = moment
+                  .duration(endDate.diff(startDate))
+                  .asSeconds();
+                const pauseSeconds = totalSeconds - activeSeconds;
 
-              const isOnsite = timeEntries.some((entry) =>
-                (entry.tags || [])
-                  .map((tag) => tag.toLowerCase())
-                  .includes('onsite')
-              );
+                const isOnsite = timeEntries.some((entry) =>
+                  (entry.tags || [])
+                    .map((tag) => tag.toLowerCase())
+                    .includes('onsite')
+                );
 
-              const totalTimeWorked = formatSeconds(activeSeconds);
+                const totalTimeWorked = formatSeconds(activeSeconds);
 
-              const result: Record<typeof header[number], unknown> = {
-                DATE: formatDateForInvoice(start, meta.lang),
-                START: startDate.format('HH:mm'),
-                END: endDate.format('HH:mm'),
-                PAUSE: formatSeconds(pauseSeconds),
-                DESCRIPTION: description,
-                PROJECT_HEADER: uniquify(
-                  timeEntries.map(({ project }) => project.name)
-                ).join(', '),
-                TOTAL_TIME_WORKED: totalTimeWorked,
-                LOCATION: isOnsite ? t('ONSITE') : t('OFFSITE'),
-              };
+                const result: Record<typeof header[number], unknown> = {
+                  DATE: formatDateForInvoice(
+                    start,
+                    customer.contentful.language
+                  ),
+                  START: startDate.format('HH:mm'),
+                  END: endDate.format('HH:mm'),
+                  PAUSE: formatSeconds(pauseSeconds),
+                  DESCRIPTION: description,
+                  PROJECT_HEADER: uniquify(
+                    timeEntries.map(({ project }) => project.contentful.name)
+                  ).join(', '),
+                  TOTAL_TIME_WORKED: totalTimeWorked,
+                  LOCATION: isOnsite
+                    ? translate('ONSITE')
+                    : translate('OFFSITE'),
+                };
 
-              return result;
-            }
-          )
-          .map((result) => mapWrapJoin(...header.map((h) => result[h]))),
-        mapWrapJoin(
-          ...Array(header.length - 2).fill(''),
-          t('SUM'),
-          formatSeconds(totalSecondsSpent)
-        ),
-      ].join('\n'),
-    };
-  });
+                return result;
+              }
+            )
+            .map((result) => mapWrapJoin(...header.map((h) => result[h]))),
+          mapWrapJoin(
+            ...Array(header.length - 2).fill(''),
+            translate('SUM'),
+            formatSeconds(totalSecondsSpent)
+          ),
+        ].join('\n'),
+      };
+    })
+  );
 };
 
 export const csvToHtml = (csv: string, name: string): string => {

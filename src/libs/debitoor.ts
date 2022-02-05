@@ -1,21 +1,17 @@
+import { documentToPlainTextString } from '@contentful/rich-text-plain-text-renderer';
 import FormData from 'form-data';
 import nodeFetch from 'node-fetch';
 import * as qs from 'querystring';
-import { Locale } from 'src/translations';
 import { ATTACH_TIMESHEET, BILL_PER_PROJECT } from './constants';
+import { ContentfulCompany, fetchCustomers, fetchProducts } from './contentful';
 import { createCsv, csvToHtml, htmlToPdf } from './csv';
 import {
   Attachment,
   BookedInvoiceResponse,
-  Company,
   Customer,
-  CustomerData,
-  CustomerDataMapping,
-  CustomerMeta,
   DraftInvoiceRequest,
   DraftInvoiceResponse,
   File,
-  GlobalMeta,
   Line,
   LogoResponse,
   Product,
@@ -27,19 +23,18 @@ import {
   EnrichedTimeEntry,
   ProjectTimeEntries
 } from './toggl-types';
+import { CustomerData, Locale } from './types';
 import {
-  Cache,
   Config,
   download,
   initFetch,
-  isClientTimeEntries,
+  initTranslate,
   Logger,
-  translate,
   uniquify
 } from './utils';
 
 const BASE_URL = 'https://api.debitoor.com/api';
-const CUSTOMERS_PATH = 'customers';
+const CUSTOMERS_PATH = 'customers/v2';
 const PRODUCTS_PATH = 'products/v1';
 const SETTINGS_PATH = 'settings/v3';
 const DRAFT_INVOICES_PATH = 'sales/draftinvoices';
@@ -48,42 +43,12 @@ const authorization = `Bearer ${process.env.DEBITOOR_API_TOKEN}`;
 
 const fetch = initFetch(authorization);
 
-const customerCache = new Cache<Customer[]>('debitoor.customers', null);
-const productCache = new Cache<{ [key: string]: Product }>(
-  'debitoor.products',
-  {}
-);
-
 export const fetchDraftInvoiceAsHtml = async (draftInvoiceId: string) => {
   return fetch(
     `${BASE_URL}/sales/draftinvoices/${draftInvoiceId}/html/v1`,
     undefined,
     false
   );
-};
-
-export const fetchCustomers = async (): Promise<Customer[]> => {
-  const customers =
-    customerCache.get() || (await fetch(`${BASE_URL}/${CUSTOMERS_PATH}/v2`));
-  customerCache.set(customers);
-  return customers;
-};
-
-export const upsertCustomer = async (
-  data: Partial<Customer>
-): Promise<Customer> => {
-  const customers = await fetchCustomers();
-  const customer = customers.find(({ name }) => name === data.name);
-  if (customer?.id) {
-    return fetch(`${BASE_URL}/${CUSTOMERS_PATH}/${customer.id}/v2`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
-    });
-  }
-  return fetch(`${BASE_URL}/${CUSTOMERS_PATH}/${customer.id}/v2`, {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
 };
 
 export const createFile = async <T>(
@@ -110,14 +75,12 @@ export const createFile = async <T>(
   return json;
 };
 
-export const fetchProductBySku = async (sku: string): Promise<Product> => {
-  const cachedProduct = productCache.get()?.[sku];
-  if (cachedProduct) return cachedProduct;
-
+export const fetchDebitoorProductBySku = async (
+  sku: string
+): Promise<Product> => {
   const querystring = qs.stringify({ sku });
   const result = await fetch(`${BASE_URL}/${PRODUCTS_PATH}?${querystring}`);
   const product = result?.[0];
-  productCache.assign({ [sku]: product });
   return product;
 };
 
@@ -162,7 +125,7 @@ export const bookSendDraftInvoice = async (
     subject?: string;
     message?: string;
     copyMail?: boolean;
-    countryCode?: 'DE' | 'GB';
+    countryCode?: string;
   }
 ): Promise<BookedInvoiceResponse> => {
   return fetch(`${BASE_URL}/${DRAFT_INVOICES_PATH}/${id}/booksend/v8`, {
@@ -172,9 +135,12 @@ export const bookSendDraftInvoice = async (
 };
 
 export const changeCompany = async (
-  company: Company
+  company: ContentfulCompany
 ): Promise<Settings & LogoResponse> => {
-  const logoRes = await changeCompanyLogo(company.logo, `${company.id}.png`);
+  const logoRes = await changeCompanyLogo(
+    company.logo.fields.file.url,
+    `${company.abbreviation}.png`
+  );
   const settingsRes = await changeCompanyDetails(
     company.name,
     company.website,
@@ -225,80 +191,20 @@ export const changeCompanyDetails = async (
   });
 };
 
-const parseNotes = <T>(notes: string = ''): T => {
-  const data = notes.match(/\[\[(.*)\]\]/)?.[1] || '{}';
-  return JSON.parse(data);
-};
-export const getCustomerMeta = (notes: string = ''): CustomerMeta => {
-  if (!notes) return { sku: '~' };
-  return parseNotes(notes);
-};
-
-export const fetchGlobalMeta = async (): Promise<GlobalMeta> => {
-  const customers = await fetchCustomers();
-  const meta = customers.find(({ name }) => name === 'z_META');
-  if (!meta) throw new Error('Customer META not found');
-  return parseNotes(meta.notes);
-};
-
-export const getCustomer = (
-  customers: Customer[],
-  customerNameOrId: string
-): { customer: Customer; meta: CustomerMeta } => {
-  return customers.reduce(
-    (acc, customer) => {
-      const meta = getCustomerMeta(customer.notes);
-      if (
-        !acc.customer &&
-        !acc.meta &&
-        (customerNameOrId === customer.id || customerNameOrId === customer.name)
-      ) {
-        return { customer, meta };
-      }
-      return acc;
-    },
-    { customer: null, meta: null }
-  );
-};
-
-export const fetchCustomerData = async (
-  customerNameOrId: string
-): Promise<CustomerData> => {
-  const customers = await fetchCustomers();
-  const { customer, meta } = getCustomer(customers, customerNameOrId);
-  if (!customer || !meta) {
-    throw new Error(`Customer "${customerNameOrId}" not found`);
-  }
-  const product = await fetchProductBySku(meta.sku);
-  if (!product) {
-    throw new Error(`Product "${meta.sku}" not found`);
-  }
-  return { product, customer, meta };
-};
-
-export const fetchAllCustomerData = async (
-  customerTimeEntries: ClientTimeEntries[]
-): Promise<CustomerDataMapping> =>
-  customerTimeEntries.reduce(
-    async (acc, { customer }) => ({
-      ...(await acc),
-      [customer.name]: await fetchCustomerData(customer.name),
-    }),
-    {} as Promise<CustomerDataMapping>
-  );
-
-const getDescriptionByDates = (
+const getDescriptionByDates = async (
   timeEntries: EnrichedTimeEntry[] = [],
   locale: Locale,
   shouldBeBilledByProject: boolean
-): string => {
+): Promise<string> => {
   const timeEntriesByProject = getTimeEntriesByProject(timeEntries);
+
+  const translate = await initTranslate(locale);
 
   return Object.entries(timeEntriesByProject)
     .map(([project, timeEntries]) => {
       return [
         !shouldBeBilledByProject &&
-          translate(locale, 'PROJECT', {
+          translate('PROJECT', {
             projects: project,
           }),
         !shouldBeBilledByProject && ' ',
@@ -317,87 +223,104 @@ const languageCodes = {
   en: 'en-DE',
 };
 
-export const generateInvoiceTemplate = (
-  customerData: CustomerData,
+export const generateInvoiceTemplate = async (
   customerTimeEntries: ClientTimeEntries | ProjectTimeEntries,
   config: Config
-): DraftInvoiceRequest => {
-  const { product, customer, meta } = customerData;
+): Promise<DraftInvoiceRequest> => {
   const { time } = config;
-  const shouldBeBilledByProject = meta.flags?.includes(BILL_PER_PROJECT);
+  const shouldBeBilledByProject = customerTimeEntries.customer.contentful.flags?.includes(
+    BILL_PER_PROJECT
+  );
 
-  const lines: Line[] = customerTimeEntries.days.map(
-    ({ start, timeEntries, totalSecondsSpent }) => ({
-      productId: product.id,
-      taxEnabled: product.taxEnabled,
-      taxRate: product.rate,
-      unitId: product.unitId,
-      unitNetPrice: product.netUnitSalesPrice,
-      quantity: getRoundedHours(totalSecondsSpent) || 0,
-      productName: formatDateForInvoice(start, meta.lang),
-      description: getDescriptionByDates(
-        timeEntries,
-        meta.lang,
-        shouldBeBilledByProject
-      ),
-    })
+  const lines: Line[] = await Promise.all(
+    customerTimeEntries.days.map(
+      async ({ start, timeEntries, totalSecondsSpent }) => ({
+        productId: customerTimeEntries.project.product.debitoor.id,
+        taxEnabled: customerTimeEntries.project.product.debitoor.taxEnabled,
+        taxRate: customerTimeEntries.project.product.debitoor.rate,
+        unitId: customerTimeEntries.project.product.debitoor.unitId,
+        unitNetPrice:
+          customerTimeEntries.project.product.debitoor.netUnitSalesPrice,
+        quantity: getRoundedHours(totalSecondsSpent) || 0,
+        productName: formatDateForInvoice(
+          start,
+          customerTimeEntries.customer.contentful.language
+        ),
+        description: await getDescriptionByDates(
+          timeEntries,
+          customerTimeEntries.customer.contentful.language,
+          shouldBeBilledByProject
+        ),
+      })
+    )
+  );
+
+  const translate = await initTranslate(
+    customerTimeEntries.customer.contentful.language
   );
 
   const notes = [
-    translate(meta.lang, 'PERFORMANCE_PERIOD', {
-      from: formatDateForInvoice(time.startOfMonthFormatted, meta.lang),
-      to: formatDateForInvoice(time.endOfMonthFormatted, meta.lang),
+    translate('PERFORMANCE_PERIOD', {
+      from: formatDateForInvoice(
+        time.startOfMonthFormatted,
+        customerTimeEntries.customer.contentful.language
+      ),
+      to: formatDateForInvoice(
+        time.endOfMonthFormatted,
+        customerTimeEntries.customer.contentful.language
+      ),
     }),
     shouldBeBilledByProject && ' ',
     shouldBeBilledByProject &&
-      translate(meta.lang, 'PROJECT', {
-        projects: (customerTimeEntries as ProjectTimeEntries).project.name,
+      translate('PROJECT', {
+        projects: (customerTimeEntries as ProjectTimeEntries).project.contentful
+          .name,
       }),
   ]
     .filter(Boolean)
     .join('\n');
-  const additionalNotes = translate(meta.lang, 'ADDITIONAL_NOTES', {
-    netUnitSalesPrice: product.netUnitSalesPrice,
+  const additionalNotes = translate('ADDITIONAL_NOTES', {
+    netUnitSalesPrice:
+      customerTimeEntries.project.product.debitoor.netUnitSalesPrice,
   });
 
   return {
-    customerName: customer.name,
-    customerAddress: customer.address,
-    customerCountry: customer.countryCode,
-    customerEmail: customer.email,
-    customerId: customer.id,
-    customerNumber: customer.number,
-    paymentTermsId: customer.paymentTermsId,
-    customPaymentTermsDays: customer.customPaymentTermsDays,
+    customerName: customerTimeEntries.customer.contentful.name,
+    customerAddress: customerTimeEntries.customer.contentful.address,
+    customerCountry: customerTimeEntries.customer.contentful.countryCode,
+    customerEmail: customerTimeEntries.customer.contentful.emails?.[0],
+    customerId: customerTimeEntries.customer.debitoor.id,
+    customerNumber: customerTimeEntries.customer.debitoor.number,
+    paymentTermsId: customerTimeEntries.customer.debitoor.paymentTermsId,
+    customPaymentTermsDays:
+      customerTimeEntries.customer.debitoor.customPaymentTermsDays,
     notes,
     additionalNotes,
-    languageCode: languageCodes[meta.lang] || languageCodes.de,
+    languageCode:
+      languageCodes[customerTimeEntries.customer.contentful.language] ||
+      languageCodes.de,
     lines,
   };
 };
 
 export type CreateDraftInvoicesResponse = {
   response?: DraftInvoiceResponse;
-  customerData?: CustomerData;
+  customerData: CustomerData;
   customerTimeEntries: ClientTimeEntries | ProjectTimeEntries;
   error?: Error;
 };
 
 export const createDraftInvoices = async (
   customersTimeEntries: ClientTimeEntries[],
-  config: Config,
-  customerDataMapping: CustomerDataMapping,
-  globalMeta: GlobalMeta
+  config: Config
 ): Promise<CreateDraftInvoicesResponse[]> => {
   const batchedCustomersTimeEntries: (
     | ProjectTimeEntries
     | ClientTimeEntries
   )[] = customersTimeEntries.reduce((acc, customerTimeEntries) => {
-    const customerData = getCustomerData(
-      customerDataMapping,
-      customerTimeEntries
-    );
-    if (customerData.meta?.flags?.includes(BILL_PER_PROJECT)) {
+    if (
+      customerTimeEntries.customer.contentful.flags?.includes(BILL_PER_PROJECT)
+    ) {
       return [...acc, ...customerTimeEntries.projects];
     }
     return [...acc, customerTimeEntries];
@@ -406,24 +329,17 @@ export const createDraftInvoices = async (
   const payload: CreateDraftInvoicesResponse[] = [];
   for (const customerTimeEntries of batchedCustomersTimeEntries) {
     try {
-      const customerData = getCustomerData(
-        customerDataMapping,
-        customerTimeEntries
-      );
-
-      const request = generateInvoiceTemplate(
-        customerData,
+      const request = await generateInvoiceTemplate(
         customerTimeEntries,
         config
       );
 
-      if (customerData.meta?.flags?.includes(ATTACH_TIMESHEET)) {
-        const csvs = createCsv(
-          [customerTimeEntries],
-          customerDataMapping,
-          config,
-          globalMeta
-        );
+      if (
+        customerTimeEntries.customer.contentful.flags?.includes(
+          ATTACH_TIMESHEET
+        )
+      ) {
+        const csvs = await createCsv([customerTimeEntries], config);
 
         request.attachments = await Promise.all(
           csvs.map(({ csv, name }) => {
@@ -432,11 +348,11 @@ export const createDraftInvoices = async (
               matches.join(''),
               formatDateForInvoice(
                 config.time.startOfMonthFormatted,
-                customerData.meta.lang
+                customerTimeEntries.customer.contentful.language
               ),
               formatDateForInvoice(
                 config.time.endOfMonthFormatted,
-                customerData.meta.lang
+                customerTimeEntries.customer.contentful.language
               ),
             ].join('_');
             return generateAttachment(csv, fileName);
@@ -451,13 +367,20 @@ export const createDraftInvoices = async (
       }
       payload.push({
         response,
+        customerData: {
+          customer: customerTimeEntries.customer,
+          project: customerTimeEntries.project,
+        },
         customerTimeEntries,
-        customerData,
       });
     } catch (error) {
       Logger.warn(error);
       payload.push({
         customerTimeEntries,
+        customerData: {
+          customer: customerTimeEntries.customer,
+          project: customerTimeEntries.project,
+        },
         error,
       });
     }
@@ -481,8 +404,8 @@ export const getTimeEntriesByProject = (
   return timeEntries.reduce(
     (acc2, timeEntry) => ({
       ...acc2,
-      [timeEntry.project.name]: [
-        ...(acc2[timeEntry.project.name] || []),
+      [timeEntry.project.contentful.name]: [
+        ...(acc2[timeEntry.project.contentful.name] || []),
         timeEntry,
       ],
     }),
@@ -490,15 +413,99 @@ export const getTimeEntriesByProject = (
   );
 };
 
-const getCustomerData = (
-  customerDataMapping: CustomerDataMapping,
-  customerTimeEntries: ClientTimeEntries | ProjectTimeEntries
-): CustomerData | never => {
-  const customer = isClientTimeEntries(customerTimeEntries)
-    ? customerTimeEntries.customer
-    : customerTimeEntries.project.customer;
+interface Body extends Record<string, string | boolean | number> {
+  reference: string;
+}
 
-  const customerData = customerDataMapping[customer.name];
-  if (!customerData) throw new Error(`No customer found for ${customer.name}`);
-  return customerData;
-};
+export async function updateDebitoorProducts() {
+  const products = await fetchProducts();
+
+  for (const product of products) {
+    await upsertDebitoorProduct({
+      name: product.fields.name,
+      reference: product.sys.id,
+      description: product.fields.description,
+      taxEnabled: !!product.fields.tax,
+      rate: product.fields.tax,
+      netUnitSalesPrice: product.fields.netPrice,
+      sku: `${product.fields.skuPrefix}-${product.fields.skuSuffix}`,
+    });
+  }
+}
+
+export async function fetchDebitoorProductByReference(
+  reference: string
+): Promise<Product> {
+  return await fetchExisting<Product>(
+    `${BASE_URL}/${PRODUCTS_PATH}?${qs.stringify({ reference })}`,
+    reference
+  );
+}
+
+async function upsertDebitoorProduct(body: Body) {
+  const found = await fetchDebitoorProductByReference(body.reference);
+  await fetch(`${BASE_URL}/products${found ? `/${found.id}/v1` : '/v1'}`, {
+    method: found ? 'PATCH' : 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function updateDebitoorCustomers() {
+  const customers = await fetchCustomers();
+
+  const paymentTermIds = await fetch<{ days: number; id: number }[]>(
+    `${BASE_URL}/sales/paymentterms/v1`
+  );
+  for (const customer of customers) {
+    const paymentTerm = customer.fields.paymentTerm;
+    const paymentTermsId = paymentTerm
+      ? paymentTermIds?.find(({ days }) => days === paymentTerm)?.id || 5
+      : undefined;
+    await upsertDebitoorCustomer({
+      name: customer.fields.name,
+      reference: customer.sys.id,
+      address: [customer.fields.additionalName, customer.fields.address]
+        .filter(Boolean)
+        .join('\n'),
+      ciNumber: customer.fields.taxId,
+      email: customer.fields.emails?.[0],
+      phone: customer.fields.phone,
+      notes: [
+        customer.fields.emailCCs?.join(', '),
+        documentToPlainTextString(customer.fields.notes as any, '\n'),
+      ]
+        .filter(Boolean)
+        .join('\n'),
+      countryCode: customer.fields.countryCode || 'DE',
+      customPaymentTermsDays: paymentTermsId === 5 ? paymentTerm : undefined,
+      paymentTermsId,
+    });
+  }
+}
+
+export async function fetchDebitoorCustomerByReference(
+  reference: string
+): Promise<Customer> {
+  return fetchExisting<Customer>(
+    `${BASE_URL}/${CUSTOMERS_PATH}?${qs.stringify({ reference })}`,
+    reference
+  );
+}
+
+async function upsertDebitoorCustomer(body: Body) {
+  const found = await fetchDebitoorCustomerByReference(body.reference);
+  await fetch(`${BASE_URL}/customers${found ? `/${found.id}/v2` : '/v2'}`, {
+    method: found ? 'PATCH' : 'POST',
+    body: JSON.stringify(body),
+  });
+}
+
+async function fetchExisting<T>(
+  url: string,
+  id: string
+): Promise<undefined | T> {
+  const fetched = await fetch(url);
+  return Array.isArray(fetched)
+    ? fetched?.find(({ reference }) => reference === id)
+    : fetched;
+}

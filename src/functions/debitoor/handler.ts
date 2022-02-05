@@ -3,16 +3,14 @@ import {
   ValidatedEventAPIGatewayProxyEvent
 } from '@libs/apiGateway';
 import { BOOK, LABEL_BILLED, MAIL } from '@libs/constants';
+import { fetchCompanies } from '@libs/contentful';
 import {
   bookDraftInvoice,
   bookSendDraftInvoice,
   changeCompany,
   createDraftInvoices,
-  CreateDraftInvoicesResponse,
-  fetchAllCustomerData,
-  fetchGlobalMeta
+  CreateDraftInvoicesResponse
 } from '@libs/debitoor';
-import { Company, CompanyId, CustomerDataMapping } from '@libs/debitoor-types';
 import { middyfy } from '@libs/lambda';
 import {
   bulkAddBilledTag,
@@ -22,15 +20,13 @@ import {
   filterTimeEntriesByLabel,
   sanitizeTimeEntries
 } from '@libs/toggl';
-import { clearCaches, getConfig, Logger, translate } from '@libs/utils';
+import { clearCaches, getConfig, initTranslate, Logger } from '@libs/utils';
 import 'source-map-support/register';
 import schema from '../schema';
 
 const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
   event
 ) => {
-  const globalMeta = await fetchGlobalMeta();
-
   try {
     const config = getConfig(event.body, (event as any).usePreviousMonth);
     const {
@@ -65,69 +61,47 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
     let draftInvoices: CreateDraftInvoicesResponse[] = [];
     const booked = [];
     let erroneous = [];
-    let customerData: CustomerDataMapping;
     if (!dryRun) {
-      customerData = await fetchAllCustomerData(customerTimeEntries);
+      draftInvoices = await createDraftInvoices(customerTimeEntries, config);
 
-      draftInvoices = await createDraftInvoices(
-        customerTimeEntries,
-        config,
-        customerData,
-        globalMeta
-      );
-
-      erroneous = draftInvoices.reduce(
-        (acc, invoice) => (invoice.error ? [...acc, invoice] : acc),
-        erroneous
-      );
+      erroneous = draftInvoices.filter(({ error }) => !!error);
       draftInvoices = draftInvoices.filter(({ error }) => !error);
 
       const bookableDraftInvoices = draftInvoices.filter(({ customerData }) =>
-        customerData?.meta.flags?.includes(BOOK)
+        customerData?.customer.contentful.flags?.includes(BOOK)
       );
 
       const batched = bookableDraftInvoices.reduce((acc, draftInvoice) => {
-        const companyId = draftInvoice.customerData?.meta.company || 'default';
-        if (!draftInvoice.customerData) {
-          Logger.error(draftInvoice);
-          throw new Error('Customerdata not found');
-        }
+        const companyId =
+          draftInvoice.customerData.project.contentful.company.fields
+            .abbreviation;
         return {
           ...acc,
           [companyId]: [...(acc[companyId] || []), draftInvoice],
         };
-      }, {} as Record<CompanyId, CreateDraftInvoicesResponse[]>);
+      }, {} as Record<string, CreateDraftInvoicesResponse[]>);
 
-      const batches = Object.entries(batched);
-      for (let i = 0; i < batches.length; i++) {
-        const [companyId, batch] = batches[i];
-        const company: Company =
-          globalMeta.companies[companyId] || globalMeta.companies.default;
-        const changeRes = await changeCompany(company);
-
-        for (let x = 0; x < batch.length; x++) {
-          const {
-            response,
-            customerData: { customer, meta },
-          } = batch[x];
+      for (const batch of Object.values(batched)) {
+        for (const { response, customerData } of batch) {
+          const company = customerData.project.contentful.company.fields;
+          const customer = customerData.customer.contentful;
+          const translate = await initTranslate(customer.language);
+          const changeRes = await changeCompany(company);
           try {
             const replacements = {
-              'customer name': customer.name,
+              'customer name': customerData.customer.contentful.name,
               'company name': company.name,
               'user name': changeRes.companyProfile.responsibleName,
             };
-            const bookRes = await (meta.flags?.includes(MAIL)
+            const bookRes = await (customer.flags?.includes(MAIL)
               ? bookSendDraftInvoice(response.id, {
-                  copyMail: !customer.email,
-                  recipient: customer.email || changeRes.companyProfile.email,
-                  ccRecipient: meta.cc,
-                  countryCode: meta.lang === 'de' ? 'DE' : 'GB',
-                  subject: translate(
-                    meta.lang,
-                    'INVOICE_SUBJECT',
-                    replacements
-                  ),
-                  message: translate(meta.lang, 'INVOICE_MESSAGE', {
+                  copyMail: !customer.emails?.[0],
+                  recipient:
+                    customer.emails?.[0] || changeRes.companyProfile.email,
+                  ccRecipient: customer.emailCCs?.[0],
+                  countryCode: customer.countryCode || 'DE',
+                  subject: translate('INVOICE_SUBJECT', replacements),
+                  message: translate('INVOICE_MESSAGE', {
                     ...replacements,
                     'total amount': response.totalGrossAmount,
                     currency: response.currency,
@@ -155,7 +129,6 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
       {
         config,
         debitoor: draftInvoices,
-        customerData,
         customerTimeEntries: dryRun ? customerTimeEntries : null,
         booked,
         erroneous,
@@ -165,7 +138,9 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
     Logger.error(error);
     return httpResponse(error.statusCode, error.message, error);
   } finally {
-    const res = await changeCompany(globalMeta.companies.default);
+    const companies = await fetchCompanies();
+    const defaultCompany = companies.find(({ fields }) => fields.isDefault);
+    const res = await changeCompany(defaultCompany.fields);
     Logger.log(`Company switched back to default (${res.companyProfile.name})`);
     clearCaches();
   }

@@ -1,12 +1,6 @@
-export const SKU = 'sku';
-export const CC = 'cc';
-export const LANG = 'lang';
-export const FLAGS = 'flags';
-export const COMPANY = 'company';
-
 export const ATTACH_TIMESHEET = 'attachTimesheet';
-export const MAIL = 'email';
-export const BOOK = 'book';
+export const MAIL = 'sendEmail';
+export const BOOK = 'bookInvoice';
 export const BILL_PER_PROJECT = 'billPerProject';
 
 export const LABEL_BILLED = 'billed';
