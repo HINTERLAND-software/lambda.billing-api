@@ -40,12 +40,14 @@ jobs:
           echo "AWS_ACCOUNT_ID=${{ secrets.AWS_PRODUCTION_ACCOUNT }}" >> ${GITHUB_ENV}
           echo "CUSTOM_DOMAIN=${{ secrets.PRODUCTION_DOMAIN }}" >> ${GITHUB_ENV}
 
-      - name: Echo mode and set common env
+      - name: Echo mode and set default env
         run: |
           echo "Running ${{ env.ENV }} mode (${{ github.ref }})"
 
           echo "TOGGL_API_TOKEN=${{ secrets.TOGGL_API_TOKEN }}" >> ${GITHUB_ENV}
           echo "DEBITOOR_API_TOKEN=${{ secrets.DEBITOOR_API_TOKEN }}" >> ${GITHUB_ENV}
+          echo "CONTENTFUL_ACCESS_TOKEN=${{ secrets.CONTENTFUL_ACCESS_TOKEN }}" >> ${GITHUB_ENV}
+          echo "CONTENTFUL_SPACE_ID=${{ secrets.CONTENTFUL_SPACE_ID }}" >> ${GITHUB_ENV}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
