@@ -16,7 +16,7 @@ import {
   TimeEntry
 } from './toggl-types';
 import { EnrichedCustomer, EnrichedProject } from './types';
-import { initFetch, Logger } from './utils';
+import { initFetch, Logger, sleep } from './utils';
 
 const BASE_URL = 'https://api.track.toggl.com/api/v8';
 const TIME_ENTRIES_PATH = 'time_entries';
@@ -175,11 +175,14 @@ export const enrichTimeEntries = async (
   billableTimeEntries: TimeEntry[]
 ): Promise<ClientTimeEntries[]> => {
   const customers: Grouped = {};
+  let cached = false;
   for (const timeEntry of billableTimeEntries) {
     const { duration, pid } = timeEntry;
 
     const togglProject = await fetchProject(pid);
+    if (!cached) await sleep(1000);
     const togglCustomer = await fetchClient(togglProject.cid);
+    cached = true;
 
     const contentfulCustomers = await fetchCustomers();
     const contentfulCustomer = contentfulCustomers.find(
@@ -291,6 +294,7 @@ export async function updateTogglClients() {
       ({ name, notes }) =>
         notes === customer.sys.id || customer.fields.name === name
     );
+    await sleep(1000);
     await fetch(`${BASE_URL}/${CLIENT_PATH}${found ? `/${found.id}` : ''}`, {
       method: found ? 'PUT' : 'POST',
       body: JSON.stringify({
@@ -306,6 +310,7 @@ export async function updateTogglClients() {
 
 export async function updateTogglProjects() {
   const togglClients = await fetch<Customer[]>(`${BASE_URL}/${CLIENT_PATH}`);
+  await sleep(1000);
   const togglProjects = await fetch<Project[]>(
     `${BASE_URL}/${WORKSPACE_PATH}/${WORKSPACE_ID}/${PROJECT_PATH}`
   );
@@ -317,6 +322,7 @@ export async function updateTogglProjects() {
     const togglProject = togglProjects.find(
       ({ name, cid }) => cid === togglClient.id && project.fields.name === name
     );
+    await sleep(1000);
     await fetch(
       `${BASE_URL}/${PROJECT_PATH}${togglProject ? `/${togglProject.id}` : ''}`,
       {
