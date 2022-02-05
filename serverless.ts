@@ -33,6 +33,8 @@ const serverlessConfiguration: AWS = {
       STAGE: '${self:provider.stage}',
       TOGGL_API_TOKEN: '${env:TOGGL_API_TOKEN}',
       DEBITOOR_API_TOKEN: '${env:DEBITOOR_API_TOKEN}',
+      CONTENTFUL_SPACE_ID: '${env:CONTENTFUL_SPACE_ID}',
+      CONTENTFUL_MANAGEMENT_TOKEN: '${env:CONTENTFUL_MANAGEMENT_TOKEN}',
     },
     lambdaHashingVersion: '20201221',
   },
