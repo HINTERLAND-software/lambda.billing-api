@@ -8,6 +8,7 @@ export interface Customer {
   notes: string;
   paymentTermsId: number;
   customPaymentTermsDays?: number;
+  ciNumber?: string;
   id: string;
   createdDate: string;
   lastModifiedDate: string;
@@ -20,6 +21,7 @@ export interface Product {
   name: string;
   description: string;
   unitId: number;
+  unitName?: string;
   netUnitSalesPrice: number;
   grossUnitSalesPrice: number;
   calculatedPrice: string;

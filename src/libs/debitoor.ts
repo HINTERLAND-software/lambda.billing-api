@@ -413,7 +413,11 @@ export const getTimeEntriesByProject = (
   );
 };
 
-interface Body extends Record<string, string | boolean | number> {
+interface ProductBody extends Partial<Product> {
+  reference: string;
+}
+
+interface CustomerBody extends Partial<Customer> {
   reference: string;
 }
 
@@ -425,6 +429,7 @@ export async function updateDebitoorProducts() {
       name: product.fields.name,
       reference: product.sys.id,
       description: product.fields.description,
+      unitId: 1, // hours
       taxEnabled: !!product.fields.tax,
       rate: product.fields.tax,
       netUnitSalesPrice: product.fields.netPrice,
@@ -442,7 +447,7 @@ export async function fetchDebitoorProductByReference(
   );
 }
 
-async function upsertDebitoorProduct(body: Body) {
+async function upsertDebitoorProduct(body: ProductBody) {
   const found = await fetchDebitoorProductByReference(body.reference);
   await fetch(`${BASE_URL}/products${found ? `/${found.id}/v1` : '/v1'}`, {
     method: found ? 'PATCH' : 'POST',
@@ -460,7 +465,7 @@ export async function updateDebitoorCustomers() {
     const paymentTerm = customer.fields.paymentTerm;
     const paymentTermsId = paymentTerm
       ? paymentTermIds?.find(({ days }) => days === paymentTerm)?.id || 5
-      : undefined;
+      : undefined;  
     await upsertDebitoorCustomer({
       name: customer.fields.name,
       reference: customer.sys.id,
@@ -492,7 +497,7 @@ export async function fetchDebitoorCustomerByReference(
   );
 }
 
-async function upsertDebitoorCustomer(body: Body) {
+async function upsertDebitoorCustomer(body: CustomerBody) {
   const found = await fetchDebitoorCustomerByReference(body.reference);
   await fetch(`${BASE_URL}/customers${found ? `/${found.id}/v2` : '/v2'}`, {
     method: found ? 'PATCH' : 'POST',

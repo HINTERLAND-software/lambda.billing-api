@@ -63,7 +63,7 @@ export interface ContentfulProduct {
   name: string;
   type: string;
   description?: string;
-  tax: string;
+  tax: number;
   netPrice: number;
   skuPrefix: string;
   skuSuffix: string;
@@ -79,18 +79,6 @@ export interface ContentfulProject {
   customer: contentful.Entry<ContentfulCustomer>;
   product: contentful.Entry<ContentfulProduct>;
   company: contentful.Entry<ContentfulCompany>;
-  from?: string;
-  to: string;
-  days?: (
-    | 'Monday'
-    | 'Tuesday'
-    | 'Wednesday'
-    | 'Thursday'
-    | 'Friday'
-    | 'Saturday'
-    | 'Sunday'
-  )[];
-  hoursPerDay?: number;
 }
 
 export async function fetchCustomers(): Promise<
