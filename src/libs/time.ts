@@ -34,50 +34,47 @@ export const sortByDate = <T>(a: T, b: T) =>
   moment(a['stop'] ?? a).isBefore(moment(b['stop'] ?? b)) ? -1 : 1;
 
 export class Time {
+  public from: moment.Moment;
+  public to: moment.Moment;
   private _moment: moment.Moment = moment();
   private _format: string = 'YYYY-MM-DD';
-  constructor(public month?: number, public year?: number) {
-    if (this.month !== undefined) {
-      this._moment.month(this.month - 1);
+
+  constructor(
+    private config: {
+      month?: number;
+      year?: number;
+      from?: string;
+      to?: string;
     }
-    if (this.year !== undefined) {
-      this._moment.year(this.year);
+  ) {
+    if (this.config.from && this.config.to) {
+      this.from = moment(this.config.from);
+      this.to = moment(this.config.to);
+    } else {
+      if (this.config.month !== undefined) {
+        this._moment.month(this.config.month - 1);
+      }
+      if (this.config.year !== undefined) {
+        this._moment.year(this.config.year);
+      }
+      this.from = this._moment.clone().startOf('month');
+      this.to = this._moment.clone().endOf('month');
     }
   }
 
-  get startOfMonth(): moment.Moment {
-    return this._moment.clone().startOf('month');
+  get fromDateFormatted(): string {
+    return this.from.format(this._format);
   }
 
-  get endOfMonth(): moment.Moment {
-    return this._moment.clone().endOf('month');
+  get toDateFormatted(): string {
+    return this.to.format(this._format);
   }
 
-  get startOfMonthFormatted(): string {
-    return this.startOfMonth.format(this._format);
+  get fromAsISO(): string {
+    return this.from.format();
   }
 
-  get endOfMonthFormatted(): string {
-    return this.endOfMonth.format(this._format);
-  }
-
-  get startOfMonthISO(): string {
-    return this.startOfMonth.format();
-  }
-
-  get endOfMonthISO(): string {
-    return this.endOfMonth.format();
-  }
-
-  get startOfMonthEpoch(): number {
-    return this.startOfMonth.valueOf();
-  }
-
-  get endOfMonthEpoch(): number {
-    return this.endOfMonth.valueOf();
-  }
-
-  get dueTimestamp(): string {
-    return this.endOfMonth.utc().add(1, 'day').format();
+  get toAsISO(): string {
+    return this.to.format();
   }
 }

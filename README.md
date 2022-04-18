@@ -20,7 +20,9 @@ export DEBITOOR_API_TOKEN="<debitoor_api_token>"
   // Optional - run for a specific range
   "range": {
     "month": 8,
-    "year": 2020
+    "year": 2020,
+    "from": "ISODATE",
+    "to": "ISODATE"
   },
   // Optional - run only for specific customers
   "customerWhitelist": [

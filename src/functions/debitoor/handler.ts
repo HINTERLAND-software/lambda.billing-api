@@ -40,8 +40,8 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
     } = config;
 
     const timeEntries = await fetchTimeEntriesBetween(
-      time.startOfMonthISO,
-      time.endOfMonthISO
+      time.fromAsISO,
+      time.toAsISO
     );
 
     const billableTimeEntries = filterTimeEntriesByLabel(

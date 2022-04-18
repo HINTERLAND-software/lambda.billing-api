@@ -17,13 +17,13 @@ import {
   LogoResponse,
   Product,
   Settings,
-  Unit,
+  Unit
 } from './debitoor-types';
 import { formatDateForInvoice, getRoundedHours } from './time';
 import {
   ClientTimeEntries,
   EnrichedTimeEntry,
-  ProjectTimeEntries,
+  ProjectTimeEntries
 } from './toggl-types';
 import { CustomerData, Locale } from './types';
 import {
@@ -32,7 +32,7 @@ import {
   initFetch,
   initTranslate,
   Logger,
-  uniquify,
+  uniquify
 } from './utils';
 
 const BASE_URL = 'https://api.debitoor.com/api';
@@ -264,11 +264,11 @@ export const generateInvoiceTemplate = async (
   const notes = [
     translate('PERFORMANCE_PERIOD', {
       from: formatDateForInvoice(
-        time.startOfMonthFormatted,
+        time.fromDateFormatted,
         customerTimeEntries.customer.contentful.language
       ),
       to: formatDateForInvoice(
-        time.endOfMonthFormatted,
+        time.toDateFormatted,
         customerTimeEntries.customer.contentful.language
       ),
     }),
@@ -349,11 +349,11 @@ export const createDraftInvoices = async (
             const fileName = [
               matches.join(''),
               formatDateForInvoice(
-                config.time.startOfMonthFormatted,
+                config.time.fromDateFormatted,
                 customerTimeEntries.customer.contentful.language
               ),
               formatDateForInvoice(
-                config.time.endOfMonthFormatted,
+                config.time.toDateFormatted,
                 customerTimeEntries.customer.contentful.language
               ),
             ].join('_');

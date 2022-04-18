@@ -110,14 +110,14 @@ export const getConfig = <T extends EventBody>(
   const month =
     body?.range?.month ?? (usePreviousMonth ? getLastMonth() : undefined);
 
-  const time = new Time(month, body?.range?.year);
+  const time = new Time({ ...(body?.range || {}), month });
 
   const isProduction = getEnvironment() === 'production';
   return {
     ...(body || {}),
     range: {
-      from: time.startOfMonthFormatted,
-      to: time.endOfMonthFormatted,
+      from: time.fromDateFormatted,
+      to: time.toDateFormatted,
     },
     dryRun: body?.dryRun ?? !isProduction,
     setBilled: body?.setBilled ?? isProduction,

@@ -44,6 +44,12 @@ export default {
         year: {
           type: 'integer',
         },
+        from: {
+          type: 'string',
+        },
+        to: {
+          type: 'string',
+        },
       },
     },
   },

@@ -54,14 +54,14 @@ export const createCsv = async (
           mapWrapJoin(
             translate('FROM'),
             formatDateForInvoice(
-              config.time.startOfMonthFormatted,
+              config.time.fromDateFormatted,
               customer.contentful.language
             )
           ),
           mapWrapJoin(
             translate('TO'),
             formatDateForInvoice(
-              config.time.endOfMonthFormatted,
+              config.time.toDateFormatted,
               customer.contentful.language
             )
           ),
