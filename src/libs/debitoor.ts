@@ -182,10 +182,14 @@ export const changeCompanyDetails = async (
   settings.companyProfile.webSite = website;
   settings.companyProfile.email = email;
   settings.companyProfile.logoUrl = logoUrl;
+  settings.customerSettings.lastCustomerNumber =
+    settings.customerSettings.lastCustomerNumber ?? 1000;
 
   settings.ccInfo.billingInfo.company = name;
 
   delete settings.vatReported;
+  delete settings.accountMigratedAt;
+  delete settings.featuresQuota;
 
   return fetch(`${BASE_URL}/${SETTINGS_PATH}`, {
     method: 'PUT',

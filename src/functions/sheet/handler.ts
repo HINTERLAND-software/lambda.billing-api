@@ -1,6 +1,6 @@
 import {
   httpResponse,
-  ValidatedEventAPIGatewayProxyEvent,
+  ValidatedEventAPIGatewayProxyEvent
 } from '@libs/apiGateway';
 import { createCsv } from '@libs/csv';
 import { middyfy } from '@libs/lambda';
@@ -10,7 +10,7 @@ import {
   fetchTimeEntriesBetween,
   filterClientTimeEntriesByCustomer,
   filterTimeEntriesByLabel,
-  sanitizeTimeEntries,
+  sanitizeTimeEntries
 } from '@libs/toggl';
 import { clearCaches, getConfig, Logger } from '@libs/utils';
 import 'source-map-support/register';
@@ -72,4 +72,4 @@ const handler: ValidatedEventAPIGatewayProxyEvent<typeof schema> = async (
   }
 };
 
-export const main = middyfy(handler);
+export const main = middyfy(handler, schema);
