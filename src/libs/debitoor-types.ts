@@ -200,6 +200,7 @@ export interface LogoResponse {
 // GENERATED WITH https://jvilk.com/MakeTypes/
 export interface Settings {
   customerSettings: CustomerSettings;
+  accountMigratedAt?: unknown;
   supplierSettings: SupplierSettings;
   invoiceSettings: InvoiceSettings;
   quoteSettings: QuoteSettings;
