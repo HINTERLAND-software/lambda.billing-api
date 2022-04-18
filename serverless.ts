@@ -3,7 +3,6 @@ import * as functions from './src/functions';
 
 const serverlessConfiguration: AWS = {
   service: '${file(./package.json):name}',
-  frameworkVersion: '2',
   useDotenv: true,
   plugins: [
     'serverless-webpack',
@@ -35,7 +34,7 @@ const serverlessConfiguration: AWS = {
       DEBITOOR_API_TOKEN: '${env:DEBITOOR_API_TOKEN}',
       CONTENTFUL_SPACE_ID: '${env:CONTENTFUL_SPACE_ID}',
       CONTENTFUL_ACCESS_TOKEN: '${env:CONTENTFUL_ACCESS_TOKEN}',
-      CONTENTFUL_ENVIRONMENT_ID: '${env:CONTENTFUL_ENVIRONMENT_ID}',
+      CONTENTFUL_ENVIRONMENT_ID: '${env:CONTENTFUL_ENVIRONMENT_ID, "master"}',
     },
     lambdaHashingVersion: '20201221',
   },
