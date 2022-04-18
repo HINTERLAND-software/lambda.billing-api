@@ -10,7 +10,7 @@ export default {
         method: 'post',
         path: 'debitoor',
         request: {
-          schema: {
+          schemas: {
             'application/json': schema,
           },
         },
