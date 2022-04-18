@@ -3,7 +3,8 @@ import FormData from 'form-data';
 import nodeFetch from 'node-fetch';
 import * as qs from 'querystring';
 import { ATTACH_TIMESHEET, BILL_PER_PROJECT } from './constants';
-import { ContentfulCompany, fetchCustomers, fetchProducts } from './contentful';
+import { fetchCustomers, fetchProducts } from './contentful';
+import { TypeCompanyFields } from './contentful-types';
 import { createCsv, csvToHtml, htmlToPdf } from './csv';
 import {
   Attachment,
@@ -15,13 +16,14 @@ import {
   Line,
   LogoResponse,
   Product,
-  Settings
+  Settings,
+  Unit,
 } from './debitoor-types';
 import { formatDateForInvoice, getRoundedHours } from './time';
 import {
   ClientTimeEntries,
   EnrichedTimeEntry,
-  ProjectTimeEntries
+  ProjectTimeEntries,
 } from './toggl-types';
 import { CustomerData, Locale } from './types';
 import {
@@ -30,7 +32,7 @@ import {
   initFetch,
   initTranslate,
   Logger,
-  uniquify
+  uniquify,
 } from './utils';
 
 const BASE_URL = 'https://api.debitoor.com/api';
@@ -135,7 +137,7 @@ export const bookSendDraftInvoice = async (
 };
 
 export const changeCompany = async (
-  company: ContentfulCompany
+  company: TypeCompanyFields
 ): Promise<Settings & LogoResponse> => {
   const logoRes = await changeCompanyLogo(
     company.logo.fields.file.url,
@@ -423,13 +425,13 @@ interface CustomerBody extends Partial<Customer> {
 
 export async function updateDebitoorProducts() {
   const products = await fetchProducts();
-
+  const units = await fetchUnits();
   for (const product of products) {
     await upsertDebitoorProduct({
       name: product.fields.name,
       reference: product.sys.id,
       description: product.fields.description,
-      unitId: 1, // hours
+      unitId: units.find((unit) => unit.name === product.fields.unit)?.id || 1, // hours
       taxEnabled: !!product.fields.tax,
       rate: product.fields.tax,
       netUnitSalesPrice: product.fields.netPrice,
@@ -445,6 +447,10 @@ export async function fetchDebitoorProductByReference(
     `${BASE_URL}/${PRODUCTS_PATH}?${qs.stringify({ reference })}`,
     reference
   );
+}
+
+export async function fetchUnits(): Promise<Unit[]> {
+  return fetch<Unit[]>(`${BASE_URL}/units/en-EN/v1`);
 }
 
 async function upsertDebitoorProduct(body: ProductBody) {
@@ -465,7 +471,7 @@ export async function updateDebitoorCustomers() {
     const paymentTerm = customer.fields.paymentTerm;
     const paymentTermsId = paymentTerm
       ? paymentTermIds?.find(({ days }) => days === paymentTerm)?.id || 5
-      : undefined;  
+      : undefined;
     await upsertDebitoorCustomer({
       name: customer.fields.name,
       reference: customer.sys.id,

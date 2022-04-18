@@ -1,33 +1,33 @@
 import {
-  ContentfulCustomer,
-  ContentfulProduct,
-  ContentfulProject
-} from './contentful';
+  TypeCustomerFields,
+  TypeProductFields,
+  TypeProjectFields,
+} from './contentful-types';
 import {
   Customer as DebitoorCustomer,
-  Product as DebitoorProduct
+  Product as DebitoorProduct,
 } from './debitoor-types';
 import {
   Customer as TogglCustomer,
-  Project as TogglProject
+  Project as TogglProject,
 } from './toggl-types';
 
 export type Locale = 'de' | 'en';
 
 export interface EnrichedCustomer {
   toggl: TogglCustomer;
-  contentful: ContentfulCustomer;
+  contentful: TypeCustomerFields;
   debitoor: DebitoorCustomer;
 }
 
 export interface EnrichedProduct {
-  contentful: ContentfulProduct;
+  contentful: TypeProductFields;
   debitoor: DebitoorProduct;
 }
 
 export interface EnrichedProject {
   toggl: TogglProject;
-  contentful: ContentfulProject;
+  contentful: TypeProjectFields;
   customer: EnrichedCustomer;
   product: EnrichedProduct;
 }

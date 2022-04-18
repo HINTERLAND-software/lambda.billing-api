@@ -1,6 +1,17 @@
 import * as contentful from 'contentful';
 import { ATTACH_TIMESHEET, BILL_PER_PROJECT, BOOK, MAIL } from './constants';
-import { Locale } from './types';
+import {
+  TypeCompany,
+  TypeCompanyFields,
+  TypeCustomer,
+  TypeCustomerFields,
+  TypeProduct,
+  TypeProductFields,
+  TypeProject,
+  TypeProjectFields,
+  TypeResource,
+  TypeResourceFields,
+} from './contentful-types';
 import { ContentfulCache } from './utils';
 
 const flags = [ATTACH_TIMESHEET, BILL_PER_PROJECT, MAIL, BOOK] as const;
@@ -34,91 +45,36 @@ function initClient(): contentful.ContentfulClientApi {
   return { ...client, getEntries: getCachedEntries };
 }
 
-export interface ContentfulCustomer {
-  name: string;
-  additionalName?: string;
-  taxId?: string;
-  emails?: string[];
-  emailCCs?: string[];
-  phone?: string;
-  address?: string;
-  paymentTerm: number;
-  language: Locale;
-  notes?: contentful.RichTextContent;
-  flags?: Flag[];
-  countryCode?: string;
-}
-
-export interface ContentfulCompany {
-  name: string;
-  abbreviation: string;
-  isDefault: boolean;
-  website: string;
-  email: string;
-  logo: contentful.Asset;
-  incomeTax: number;
-}
-
-export interface ContentfulProduct {
-  name: string;
-  type: string;
-  description?: string;
-  tax: number;
-  netPrice: number;
-  skuPrefix: string;
-  skuSuffix: string;
-}
-
-export interface ContentfulResource {
-  key: string;
-  value: string;
-}
-
-export interface ContentfulProject {
-  name: string;
-  customer: contentful.Entry<ContentfulCustomer>;
-  product: contentful.Entry<ContentfulProduct>;
-  company: contentful.Entry<ContentfulCompany>;
-}
-
-export async function fetchCustomers(): Promise<
-  contentful.Entry<ContentfulCustomer>[]
-> {
+export async function fetchCustomers(): Promise<TypeCustomer[]> {
   const client = initClient();
-  const { items } = await client.getEntries<ContentfulCustomer>({
+  const { items } = await client.getEntries<TypeCustomerFields>({
     content_type: 'customer',
     ...BASE_QUERY,
   });
   return items;
 }
 
-export async function fetchCompanies(): Promise<
-  contentful.Entry<ContentfulCompany>[]
-> {
+export async function fetchCompanies(): Promise<TypeCompany[]> {
   const client = initClient();
-  const { items } = await client.getEntries<ContentfulCompany>({
+  const { items } = await client.getEntries<TypeCompanyFields>({
     content_type: 'company',
     ...BASE_QUERY,
   });
   return items;
 }
 
-export async function fetchProducts(): Promise<
-  contentful.Entry<ContentfulProduct>[]
-> {
+export async function fetchProducts(): Promise<TypeProduct[]> {
   const client = initClient();
-  const { items } = await client.getEntries<ContentfulProduct>({
+  const { items } = await client.getEntries<TypeProductFields>({
     content_type: 'product',
     ...BASE_QUERY,
   });
   return items;
 }
 
-export async function fetchProjects(): Promise<
-  contentful.Entry<ContentfulProject>[]
-> {
+export async function fetchProjects(): Promise<TypeProject[]> {
   const client = initClient();
-  const { items } = await client.getEntries<ContentfulProject>({
+  const { items } = await client.getEntries<TypeProjectFields>({
     content_type: 'project',
     ...BASE_QUERY,
   });
@@ -127,9 +83,9 @@ export async function fetchProjects(): Promise<
 
 export async function fetchResources(
   locale: 'de-DE' | 'en-US'
-): Promise<contentful.Entry<ContentfulResource>[]> {
+): Promise<TypeResource[]> {
   const client = initClient();
-  const { items } = await client.getEntries<ContentfulResource>({
+  const { items } = await client.getEntries<TypeResourceFields>({
     content_type: 'resource',
     ...BASE_QUERY,
     locale,

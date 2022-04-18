@@ -4,7 +4,7 @@ import { LABEL_BILLED } from './constants';
 import { fetchCustomers, fetchProjects } from './contentful';
 import {
   fetchDebitoorCustomerByReference,
-  fetchDebitoorProductByReference
+  fetchDebitoorProductByReference,
 } from './debitoor';
 import { sortByDate } from './time';
 import {
@@ -13,7 +13,7 @@ import {
   Day,
   EnrichedTimeEntry,
   Project,
-  TimeEntry
+  TimeEntry,
 } from './toggl-types';
 import { EnrichedCustomer, EnrichedProject } from './types';
 import { initFetch, Logger, sleep } from './utils';

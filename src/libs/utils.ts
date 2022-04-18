@@ -1,8 +1,8 @@
-import { Entry } from 'contentful';
 import type { FromSchema } from 'json-schema-to-ts';
 import nodeFetch, { RequestInit } from 'node-fetch';
 import schema from 'src/functions/schema';
-import { ContentfulResource, fetchResources } from './contentful';
+import { fetchResources } from './contentful';
+import { TypeResource } from './contentful-types';
 import { getLastMonth, Time } from './time';
 import { ClientTimeEntries, ProjectTimeEntries } from './toggl-types';
 import { Locale } from './types';
@@ -140,7 +140,7 @@ export async function initTranslate(locale: Locale = 'de') {
 }
 
 const translate = (
-  translations: Entry<ContentfulResource>[],
+  translations: TypeResource[],
   key: string,
   replacements: Replacements = {}
 ): string => {

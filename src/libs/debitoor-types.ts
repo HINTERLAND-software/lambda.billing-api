@@ -13,6 +13,12 @@ export interface Customer {
   createdDate: string;
   lastModifiedDate: string;
 }
+
+export interface Unit {
+  id: number;
+  name: string;
+}
+
 export interface Attachment {
   fileId: string;
 }

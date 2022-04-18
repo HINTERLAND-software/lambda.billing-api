@@ -6,11 +6,12 @@
   "main": "serverless.ts",
   "scripts": {
     "lint": "prettier --write **/*",
-    "test": "npm run lint && npm run jest",
+    "test": "npm run lint && npm run type-check && npm run jest",
     "start:offline": "DEBUG=true serverless offline --httpPort 6060 start",
     "jest": "jest",
     "jest:watch": "jest --watch",
     "deploy": "serverless deploy --conceal",
+    "type-check": "tsc --noEmit",
     "update-customer-meta": "ts-node src/bin/update-customers.ts"
   },
   "keywords": [],

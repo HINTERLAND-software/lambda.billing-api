@@ -1,10 +1,10 @@
 import {
   httpResponse,
-  ValidatedEventAPIGatewayProxyEvent
+  ValidatedEventAPIGatewayProxyEvent,
 } from '@libs/apiGateway';
 import {
   updateDebitoorCustomers,
-  updateDebitoorProducts
+  updateDebitoorProducts,
 } from '@libs/debitoor';
 import { middyfy } from '@libs/lambda';
 import { updateTogglClients, updateTogglProjects } from '@libs/toggl';

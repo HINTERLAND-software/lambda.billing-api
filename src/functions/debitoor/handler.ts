@@ -1,6 +1,6 @@
 import {
   httpResponse,
-  ValidatedEventAPIGatewayProxyEvent
+  ValidatedEventAPIGatewayProxyEvent,
 } from '@libs/apiGateway';
 import { BOOK, LABEL_BILLED, MAIL } from '@libs/constants';
 import { fetchCompanies } from '@libs/contentful';
@@ -9,7 +9,7 @@ import {
   bookSendDraftInvoice,
   changeCompany,
   createDraftInvoices,
-  CreateDraftInvoicesResponse
+  CreateDraftInvoicesResponse,
 } from '@libs/debitoor';
 import { middyfy } from '@libs/lambda';
 import {
@@ -18,7 +18,7 @@ import {
   fetchTimeEntriesBetween,
   filterClientTimeEntriesByCustomer,
   filterTimeEntriesByLabel,
-  sanitizeTimeEntries
+  sanitizeTimeEntries,
 } from '@libs/toggl';
 import { clearCaches, getConfig, initTranslate, Logger } from '@libs/utils';
 import 'source-map-support/register';
