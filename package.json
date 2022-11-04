@@ -54,7 +54,7 @@
     "contentful": "^9.0.3",
     "contentful-management": "^7.42.0",
     "form-data": "^4.0.0",
-    "moment": "^2.29.1",
+    "moment": "^2.29.4",
     "node-fetch": "^2.6.1",
     "puppeteer-core": "^10.1.0",
     "source-map-support": "^0.5.19"
