@@ -12,7 +12,7 @@ const serverlessConfiguration: AWS = {
   ],
   provider: {
     name: 'aws',
-    runtime: 'nodejs14.x' as any,
+    runtime: 'nodejs14.x',
     region: '${env:AWS_REGION}' as AWS['provider']['region'],
     logRetentionInDays: 30,
     stage: '${opt:stage, env:ENV}', // you can override this via the CLI argument

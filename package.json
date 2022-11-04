@@ -18,7 +18,7 @@
   "author": "jroehl <mail@hinterland.software>",
   "license": "MIT",
   "devDependencies": {
-    "@serverless/typescript": "^2.18.0",
+    "@serverless/typescript": "^2.52.1",
     "@types/aws-lambda": "^8.10.70",
     "@types/form-data": "^2.5.0",
     "@types/jest": "^26.0.20",
