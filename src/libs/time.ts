@@ -71,10 +71,10 @@ export class Time {
   }
 
   get fromAsISO(): string {
-    return this.from.format();
+    return this.from.toISOString();
   }
 
   get toAsISO(): string {
-    return this.to.format();
+    return this.to.toISOString();
   }
 }

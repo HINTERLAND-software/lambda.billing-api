@@ -2,10 +2,7 @@ import moment from 'moment';
 import * as qs from 'querystring';
 import { LABEL_BILLED } from './constants';
 import { fetchCustomers, fetchProjects } from './contentful';
-import {
-  fetchDebitoorCustomerByReference,
-  fetchDebitoorProductByReference,
-} from './debitoor';
+import { fetchExistingCustomer } from './lexoffice';
 import { sortByDate } from './time';
 import {
   ClientTimeEntries,
@@ -200,28 +197,17 @@ export const enrichTimeEntries = async (
     if (!contentfulProject)
       throw new Error(`No contentful project found for ${togglProject.name}`);
 
-    const debitoorCustomer = await fetchDebitoorCustomerByReference(
-      contentfulCustomer.sys.id
-    );
+    const lexofficeCustomer = await fetchExistingCustomer(contentfulCustomer);
 
-    if (!debitoorCustomer)
+    if (!lexofficeCustomer)
       throw new Error(
-        `No debitoor customer found for ${contentfulProject.fields.name}`
-      );
-
-    const debitoorProduct = await fetchDebitoorProductByReference(
-      contentfulProject.fields.product.sys.id
-    );
-
-    if (!debitoorProduct)
-      throw new Error(
-        `No debitoor product found for ${contentfulProject.fields.product.fields.name}`
+        `No lexoffice customer found for ${contentfulProject.fields.name}`
       );
 
     const customer: EnrichedCustomer = {
       toggl: togglCustomer,
       contentful: contentfulCustomer.fields,
-      debitoor: debitoorCustomer,
+      lexoffice: lexofficeCustomer,
     };
 
     const project: EnrichedProject = {
@@ -230,7 +216,6 @@ export const enrichTimeEntries = async (
       customer,
       product: {
         contentful: contentfulProject.fields.product.fields,
-        debitoor: debitoorProduct,
       },
     };
 
@@ -285,7 +270,7 @@ export const enrichTimeEntries = async (
   );
 };
 
-export async function updateTogglClients() {
+export async function updateClients() {
   const togglClients = await fetch<Customer[]>(`${BASE_URL}/${CLIENT_PATH}`);
   const customers = await fetchCustomers();
 
@@ -320,7 +305,7 @@ export async function updateTogglClients() {
   }
 }
 
-export async function updateTogglProjects() {
+export async function updateProjects() {
   const togglClients = await fetch<Customer[]>(`${BASE_URL}/${CLIENT_PATH}`);
   await sleep(1000);
   const togglProjects = await fetch<Project[]>(

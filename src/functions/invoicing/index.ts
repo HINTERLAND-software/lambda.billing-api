@@ -8,7 +8,7 @@ export default {
     {
       http: {
         method: 'post',
-        path: 'debitoor',
+        path: 'invoicing',
         request: {
           schemas: {
             'application/json': schema,

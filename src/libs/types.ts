@@ -3,10 +3,7 @@ import {
   TypeProductFields,
   TypeProjectFields,
 } from './contentful-types';
-import {
-  Customer as DebitoorCustomer,
-  Product as DebitoorProduct,
-} from './debitoor-types';
+import { Contact as LexofficeContact } from './lexoffice-types';
 import {
   Customer as TogglCustomer,
   Project as TogglProject,
@@ -17,12 +14,11 @@ export type Locale = 'de' | 'en';
 export interface EnrichedCustomer {
   toggl: TogglCustomer;
   contentful: TypeCustomerFields;
-  debitoor: DebitoorCustomer;
+  lexoffice: LexofficeContact;
 }
 
 export interface EnrichedProduct {
   contentful: TypeProductFields;
-  debitoor: DebitoorProduct;
 }
 
 export interface EnrichedProject {
