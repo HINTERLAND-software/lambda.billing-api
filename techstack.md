@@ -48,7 +48,7 @@ Full tech stack [here](/techstack.md)
 # Tech Stack File
 ![](https://img.stackshare.io/repo.svg "repo") [HINTERLAND-software/lambda.billing-api](https://github.com/HINTERLAND-software/lambda.billing-api)![](https://img.stackshare.io/public_badge.svg "public")
 <br/><br/>
-|33<br/>Tools used|01/02/24 <br/>Report generated|
+|33<br/>Tools used|01/05/24 <br/>Report generated|
 |------|------|
 </div>
 
