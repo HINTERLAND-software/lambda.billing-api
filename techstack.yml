@@ -2,7 +2,7 @@ repo_name: HINTERLAND-software/lambda.billing-api
 report_id: bf73066d01b9daa14c1f8933e8f85f74
 version: 0.1
 repo_type: Public
-timestamp: '2024-01-02T04:11:05+00:00'
+timestamp: '2024-01-05T08:13:13+00:00'
 requested_by: jroehl
 provider: github
 branch: master
@@ -17,6 +17,7 @@ tools:
   category: Languages & Frameworks
   sub_category: Languages
   image_url: https://img.stackshare.io/service/1209/javascript.jpeg
+  detection_source_url: https://github.com/HINTERLAND-software/lambda.billing-api
   detection_source: Repo Metadata
 - name: Ruby
   description: A dynamic, interpreted, open source programming language with a focus
@@ -27,6 +28,7 @@ tools:
   category: Languages & Frameworks
   sub_category: Languages
   image_url: https://img.stackshare.io/service/989/ruby.png
+  detection_source_url: https://github.com/HINTERLAND-software/lambda.billing-api/blob/master/package.json
   detection_source: package.json
   last_updated_by: jroehl
   last_updated_on: 2020-08-18 08:53:12.000000000 Z
@@ -39,6 +41,7 @@ tools:
   category: Languages & Frameworks
   sub_category: Languages
   image_url: https://img.stackshare.io/service/1612/bynNY5dJ.jpg
+  detection_source_url: https://github.com/HINTERLAND-software/lambda.billing-api
   detection_source: Repo Metadata
 - name: Node.js
   description: A platform built on Chrome's JavaScript runtime for easily building
@@ -62,6 +65,7 @@ tools:
   category: Build, Test, Deploy
   sub_category: Version Control System
   image_url: https://img.stackshare.io/service/1046/git.png
+  detection_source_url: https://github.com/HINTERLAND-software/lambda.billing-api
   detection_source: Repo Metadata
 - name: GitHub Actions
   description: Automate your workflow from idea to production
@@ -71,6 +75,7 @@ tools:
   category: Build, Test, Deploy
   sub_category: Continuous Integration
   image_url: https://img.stackshare.io/service/11563/actions.png
+  detection_source_url: https://github.com/HINTERLAND-software/lambda.billing-api/blob/master/.github/workflows/codeql-analysis.yml
   detection_source: ".github/workflows/codeql-analysis.yml"
   last_updated_by: Johann
   last_updated_on: 2020-08-19 11:09:27.000000000 Z
@@ -111,6 +116,7 @@ tools:
   category: Build, Test, Deploy
   sub_category: Headless Browsers
   image_url: https://img.stackshare.io/service/7553/puppeteer.png
+  detection_source_url: https://github.com/HINTERLAND-software/lambda.billing-api/blob/master/package.json
   detection_source: package.json
   last_updated_by: jroehl
   last_updated_on: 2021-06-30 12:17:51.000000000 Z
@@ -122,6 +128,7 @@ tools:
   category: Build, Test, Deploy
   sub_category: Package Managers
   image_url: https://img.stackshare.io/service/12795/5jL6-BA5_400x400.jpeg
+  detection_source_url: https://github.com/HINTERLAND-software/lambda.billing-api/blob/master/package.json
   detection_source: package.json
   last_updated_by: jroehl
   last_updated_on: 2020-08-18 08:53:12.000000000 Z
@@ -147,6 +154,7 @@ tools:
   category: Build, Test, Deploy
   sub_category: Front End Package Manager
   image_url: https://img.stackshare.io/service/1120/lejvzrnlpb308aftn31u.png
+  detection_source_url: https://github.com/HINTERLAND-software/lambda.billing-api/blob/master/package.json
   detection_source: package.json
   last_updated_by: jroehl
   last_updated_on: 2020-08-18 08:53:12.000000000 Z
@@ -159,6 +167,7 @@ tools:
   category: Application Hosting
   sub_category: Serverless / Task Processing
   image_url: https://img.stackshare.io/service/1909/aws-lambda.png
+  detection_source_url: https://github.com/HINTERLAND-software/lambda.billing-api/blob/master/package.json
   detection_source: package.json
   last_updated_by: jroehl
   last_updated_on: 2021-06-30 12:17:51.000000000 Z
@@ -184,6 +193,7 @@ tools:
   category: Support, Sales, and Marketing
   sub_category: Cloud Content Management System
   image_url: https://img.stackshare.io/service/672/default_622e25ec0417ac85db5b66ca399528b101ba284f.png
+  detection_source_url: https://github.com/HINTERLAND-software/lambda.billing-api/blob/master/package.json
   detection_source: package.json
   last_updated_by: jroehl
   last_updated_on: 2022-02-05 13:54:09.000000000 Z
