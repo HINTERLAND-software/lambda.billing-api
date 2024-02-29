@@ -2,7 +2,7 @@ repo_name: HINTERLAND-software/lambda.billing-api
 report_id: bf73066d01b9daa14c1f8933e8f85f74
 version: 0.1
 repo_type: Public
-timestamp: '2024-01-05T08:13:13+00:00'
+timestamp: '2024-02-29T19:21:29+00:00'
 requested_by: jroehl
 provider: github
 branch: master
@@ -94,7 +94,7 @@ tools:
   last_updated_by: jroehl
   last_updated_on: 2020-08-18 08:53:12.000000000 Z
 - name: Prettier
-  description: 'Prettier is an opinionated code formatter. '
+  description: Prettier is an opinionated code formatter.
   website_url: https://prettier.io/
   version: 2.2.1
   license: MIT
@@ -186,7 +186,7 @@ tools:
   last_updated_by: jroehl
   last_updated_on: 2022-11-04 20:41:46.000000000 Z
 - name: Contentful
-  description: 'Contentful is a cloud-based API-first content platform '
+  description: Contentful is a cloud-based API-first content platform
   website_url: https://www.contentful.com/
   open_source: false
   hosted_saas: true
