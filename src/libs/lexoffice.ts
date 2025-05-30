@@ -14,7 +14,7 @@ import {
 } from './toggl-types';
 import { Config, initFetch, initTranslate, Logger, uniquify } from './utils';
 
-const BASE_URL = 'https://api.lexoffice.io';
+const BASE_URL = 'https://api.lexware.io';
 const CONTACTS_PATH = 'v1/contacts';
 const VOUCHERS_PATH = 'v1/vouchers';
 const INVOICES_PATH = 'v1/invoices';
